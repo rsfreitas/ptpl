@@ -1,0 +1,592 @@
+#!/usr/bin/python
+
+#
+# ptpl is a script to create source project templates to improve
+# software development.
+#
+# Copyright (C) 2015 Rodrigo Freitas
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+
+import sys
+import getopt
+import os
+import time
+import commands
+
+from string import Template
+
+VERSION = '1.0'
+
+PTYPE_SOURCE = 'source'
+PTYPE_HEADER = 'header'
+PTYPE_APPLICATION = 'application'
+PTYPE_LIBRARY = 'library'
+
+FNAME_SOURCES = 'sources'
+FNAME_HEADERS = 'headers'
+
+# Option keys
+OPKEY_AUTHOR_NAME = 'author_name'
+OPKEY_LANGUAGE = 'language'
+OPKEY_COMPILER = 'compiler'
+OPKEY_QUIET_MODE = 'quiet_mode'
+OPKEY_PROJECT_TYPE = 'project_type'
+OPKEY_PROJECT_NAME = 'project_name'
+OPKEY_ADDITIONAL_SOURCES = 'additional_sources'
+OPKEY_ADDITIONAL_HEADERS = 'additional_headers'
+OPKEY_SOURCES = 'source_files'
+OPKEY_HEADERS = 'header_files'
+OPKEY_PROJECT_PREFIX = 'prefix'
+
+# Supported languages
+C_LANGUAGE = 'C'
+
+comment = '''
+/*
+ * Description:
+ * Author: $FULL_AUTHOR_NAME
+ * Date: $DATE
+ * Project: $PROJECT_NAME
+ */
+
+'''
+
+app_makefile = '''
+CC = $COMPILER
+TARGET = ../bin/$PROJECT_NAME
+
+INCLUDEDIR = -I../include
+
+CFLAGS = -Wall -Wextra -O0 -ggdb $(INCLUDEDIR)
+
+LIBDIR = -L/usr/local/lib
+LIBS =
+
+OBJS = main.o
+
+$(TARGET): $(OBJS)
+	$(CC) -o $(TARGET) $(OBJS) $(LIBDIR) $(LIBS)
+
+clean:
+	rm -rf $(OBJS) $(TARGET)
+
+purge: clean $(TARGET)
+'''
+
+lib_makefile = '''
+CC = $COMPILER
+
+PCT_VERSION = $(shell grep -w VERSION ../include/${PROJECT_NAME}_internal.h | awk '{print $$$4}' | cut -d \\" -f 2)
+MAJOR_VERSION = $(shell grep MAJOR_VERSION ../include/${PROJECT_NAME}_internal.h | awk '{print $$$4}')
+MINOR_VERSION = $(shell grep MINOR_VERSION ../include/${PROJECT_NAME}_internal.h | awk '{print $$$4}')
+
+USR_DIR = /usr/local/lib
+LIBNAME = $PROJECT_NAME.so
+SONAME = $(LIBNAME).$(PCT_VERSION).$(MAJOR_VERSION)
+DEST_LIBNAME = $(SONAME).$(MINOR_VERSION)
+
+TARGET = ../bin/$(SONAME)
+TARGET_DEST = ../bin/$(DEST_LIBNAME)
+
+INCLUDEDIR = -I../include
+
+LIBDIR =
+LIBS =
+
+CFLAGS = -Wall -Wextra -fPIC -ggdb -O0 -g3 -fvisibility=hidden \\
+        -D${PROJECT_NAME_UPPER}_COMPILE -D_GNU_SOURCE $(INCLUDEDIR)
+
+VPATH = ../include:.
+
+OBJS = 		\\
+	common.o
+
+$(TARGET): $(OBJS)
+	rm -f ../bin/$(LIBNAME)*
+	$(CC) -shared -Wl,-soname,$(SONAME) -o $(TARGET_DEST) $(OBJS) $(LIBDIR) $(LIBS)
+
+clean:
+	rm -rf $(OBJS) $(TARGET) $(TARGET_DEST) *~ ../include/*~
+
+dest_clean:
+	rm -f $(USR_DIR)/$(LIBNAME)*
+
+purge: clean $(TARGET)
+
+install:
+	cp -f $(TARGET_DEST) $(USR_DIR)
+	rm -rf $(USR_DIR)/$(LIBNAME) $(USR_DIR)/$(SONAME)
+	ln -s $(USR_DIR)/$(DEST_LIBNAME) $(USR_DIR)/$(LIBNAME)
+	ln -s $(USR_DIR)/$(DEST_LIBNAME) $(USR_DIR)/$(SONAME)
+'''
+
+class TplCreationError(Exception):
+    def __init__(self, msg):
+        self.msg = msg
+
+
+
+    def __str__(self):
+        return self.msg
+
+
+
+class TplOptions:
+    '''
+        Class to handle project options, such as project name, project type,
+        author name, etc. and prepare them to be used during project creation.
+    '''
+    def __init__(self):
+        self.options = dict()
+        self.keys = (
+            OPKEY_AUTHOR_NAME,
+            OPKEY_LANGUAGE,
+            OPKEY_COMPILER,
+            OPKEY_QUIET_MODE,
+            OPKEY_PROJECT_TYPE,
+            OPKEY_PROJECT_NAME,
+            OPKEY_ADDITIONAL_SOURCES,
+            OPKEY_ADDITIONAL_HEADERS,
+            OPKEY_SOURCES,
+            OPKEY_HEADERS,
+            OPKEY_PROJECT_PREFIX
+        )
+
+        # Default values
+        self.set_value(OPKEY_LANGUAGE, C_LANGUAGE)
+        self.set_value(OPKEY_QUIET_MODE, False)
+        self.set_value(OPKEY_COMPILER, 'gcc')
+        self.set_value(OPKEY_AUTHOR_NAME, self.__git_author_name())
+
+
+
+    def __create_filenames(self, filenames_type):
+        files = []
+        ptype = self.get_value(OPKEY_PROJECT_TYPE)
+
+        if filenames_type == FNAME_SOURCES:
+            key = OPKEY_ADDITIONAL_SOURCES
+
+            if ptype == PTYPE_APPLICATION:
+                files.append('main')
+            elif ptype == PTYPE_LIBRARY:
+                files.append('common')
+        elif filenames_type == FNAME_HEADERS:
+            key = OPKEY_ADDITIONAL_HEADERS
+            lname = self.get_value(OPKEY_PROJECT_NAME).lower()
+            files.append(self.get_value(OPKEY_PROJECT_PREFIX) + lname)
+
+            if ptype == PTYPE_APPLICATION:
+                for x in [ '_prt', '_def', '_struct' ]:
+                    files.append(lname + x)
+            elif ptype == PTYPE_LIBRARY:
+                files.append(self.get_value(OPKEY_PROJECT_PREFIX) + lname \
+                        + '_internal')
+
+        d = self.get_value(key)
+
+        if d != None:
+            files += d
+
+        return files
+
+
+
+    def __file_list(self, files):
+        if len(files) == 0:
+            return []
+
+        # The file names must be separated by white space
+        return files.split(' ')
+
+
+
+    def set_value(self, key, value):
+        if key not in self.keys:
+            return False
+
+        if key in (OPKEY_ADDITIONAL_SOURCES, OPKEY_ADDITIONAL_HEADERS):
+            self.options[key] = self.__file_list(value)
+        else:
+            self.options[key] = value
+
+        return True
+
+
+
+    def get_value(self, key):
+        if key not in self.keys:
+            return False
+
+        return self.options.get(key)
+
+
+
+    def __git_author_name(self):
+        return commands.getoutput('git config user.name')
+
+
+
+    def __is_valid_project_type(self):
+        if self.get_value(OPKEY_PROJECT_TYPE) not in (PTYPE_SOURCE, \
+                PTYPE_HEADER, PTYPE_APPLICATION, PTYPE_LIBRARY):
+            return False
+
+        return True
+
+
+
+    def __is_valid_project_name(self):
+        if len(self.get_value(OPKEY_PROJECT_NAME)) == 0:
+            return False
+
+        return True
+
+
+
+    def __is_language_supported(self):
+        if self.get_value(OPKEY_LANGUAGE) == C_LANGUAGE:
+            return True
+
+        return False
+
+
+
+    def validate(self):
+        '''
+            Validate mandatory options from the internal options and set
+            some final info to be used.
+        '''
+        if self.__is_valid_project_type() == False:
+            raise TplCreationError("Wrong project type!")
+
+        if self.__is_valid_project_name() == False:
+            raise TplCreationError("Invalid project name!")
+
+        if self.__is_language_supported() == False:
+            raise TplCreationError("Unsupported programming language!")
+
+        prefix = ''
+        ptype = self.get_value(OPKEY_PROJECT_TYPE)
+
+        if ptype == PTYPE_LIBRARY:
+            prefix = 'lib'
+
+        self.set_value(OPKEY_PROJECT_PREFIX, prefix)
+
+        if ptype in (PTYPE_APPLICATION, PTYPE_LIBRARY):
+            self.set_value(OPKEY_SOURCES, self.__create_filenames(FNAME_SOURCES))
+            self.set_value(OPKEY_HEADERS, self.__create_filenames(FNAME_HEADERS))
+
+        return True
+
+
+
+    def __project_type(self):
+        desc = self.get_value(OPKEY_PROJECT_TYPE)
+
+        if desc in (PTYPE_APPLICATION, \
+                PTYPE_LIBRARY):
+            desc = desc.capitalize()
+        else:
+            desc = 'Single file'
+
+        return desc
+
+
+
+    def __str__(self):
+        s = '''
+Project Info
+------------
+
+Type of project: %s
+Name: %s
+''' % (self.__project_type(), self.get_value(OPKEY_PROJECT_NAME))
+
+        ptype = self.get_value(OPKEY_PROJECT_TYPE)
+
+        if ptype in (PTYPE_APPLICATION, PTYPE_LIBRARY):
+            s += '''
+Source files: %s
+Header files: %s
+''' % (self.get_value(OPKEY_SOURCES), self.get_value(OPKEY_HEADERS))
+
+        return s
+
+
+
+class TplProject:
+    '''
+        Class to create the project using all options passed in the @options
+        argument.
+    '''
+    def __init__(self, options):
+        if isinstance(options, TplOptions) == False:
+            raise TplCreationError("Wrong argument type!")
+
+        try:
+            options.validate()
+        except TplCreationError:
+            raise
+
+        self.options = options
+        self.prefix = self.options.get_value(OPKEY_PROJECT_PREFIX)
+
+        self.project_vars = {
+            'DATE': time.strftime('%c'),
+            'FULL_AUTHOR_NAME': self.options.get_value(OPKEY_AUTHOR_NAME),
+            'COMPILER': self.options.get_value(OPKEY_COMPILER),
+            'PROJECT_NAME': self.prefix + \
+                    self.options.get_value(OPKEY_PROJECT_NAME).replace('-', '_'),
+            'PROJECT_NAME_UPPER': self.prefix.upper() + \
+                    self.options.get_value(OPKEY_PROJECT_NAME).upper().replace('-', '_')
+        }
+
+
+
+    def __make_header_content(self, filename):
+        u = filename.replace('.', '_').upper();
+        s = '''
+#ifndef _%s
+#define _%s     1
+
+#endif
+
+''' % (u, u)
+
+        return s
+
+
+
+    def __create_single_file(self, project_type='', filename='', dest_dir=''):
+        '''
+            Saves the template of a single source/header file.
+        '''
+        if len(filename) == 0:
+            filename = self.options.get_value(OPKEY_PROJECT_NAME)
+
+        if len(project_type) == 0:
+            project_type = self.options.get_value(OPKEY_PROJECT_TYPE)
+
+        if project_type == PTYPE_SOURCE:
+            filename += '.c'
+            content = ''
+        elif project_type == PTYPE_HEADER:
+            filename += '.h'
+            content = self.__make_header_content(filename)
+
+        if len(dest_dir) != 0:
+            dest_dir += '/'
+
+        dest_dir += filename
+        output = Template(comment).safe_substitute(self.project_vars)
+
+        try:
+            fd = open(dest_dir, 'w')
+        except:
+            raise TplCreationError("'Cannot create file '%s' for project!" % dest_dir)
+
+        fd.write(output)
+
+        if len(content) != 0:
+            fd.write(content)
+
+        fd.close()
+
+
+
+    def __create_directory_structure(self):
+        root_dirname = self.prefix + \
+                self.options.get_value(OPKEY_PROJECT_NAME).replace('_', '-')
+
+        try:
+            os.mkdir(root_dirname)
+        except OSError:
+            raise
+
+        subdirs = [ 'src', 'include', 'bin' ]
+
+        for d in subdirs:
+            try:
+                os.mkdir(root_dirname + '/' + d)
+            except OSError:
+                raise
+
+        return root_dirname, subdirs
+
+
+
+    def __create_makefile(self, dest_dir=''):
+        ptype = self.options.get_value(OPKEY_PROJECT_TYPE)
+
+        if ptype == PTYPE_APPLICATION:
+            mcontent = app_makefile
+        elif ptype == PTYPE_LIBRARY:
+            mcontent = lib_makefile
+
+        output = Template(mcontent).safe_substitute(self.project_vars)
+
+        if len(dest_dir) != 0:
+            dest_dir += '/'
+
+        dest_dir += 'Makefile'
+
+        try:
+            fd = open(dest_dir, 'w')
+        except:
+            raise TplCreationError("'Cannot create Makefile for project!")
+
+        fd.write(output)
+        fd.close()
+
+
+
+    def __create_c_project(self):
+        if self.options.get_value(OPKEY_PROJECT_TYPE) in (PTYPE_SOURCE, \
+                PTYPE_HEADER):
+            self.__create_single_file()
+        else:
+            sources = self.options.get_value(OPKEY_SOURCES)
+            headers = self.options.get_value(OPKEY_HEADERS)
+
+            try:
+                dirs = self.__create_directory_structure()
+            except OSError as e:
+                print e
+                return -1
+
+            src_dir = dirs[0] + '/src'
+            header_dir = dirs[0] + '/include'
+
+            for f in sources:
+                self.__create_single_file(PTYPE_SOURCE, f, src_dir)
+
+            for f in headers:
+                self.__create_single_file(PTYPE_HEADER, f, header_dir)
+
+            try:
+                self.__create_makefile(src_dir)
+            except TplCreationError as e:
+                print e.msg
+                return -1
+
+        if self.options.get_value(OPKEY_QUIET_MODE) == False:
+            print self.options
+
+        return 0
+
+
+
+    def create(self):
+        if self.options.get_value(OPKEY_LANGUAGE) == C_LANGUAGE:
+            return self.__create_c_project()
+
+
+
+def version():
+    print 'ptpl - Version %s' % VERSION
+
+
+
+def help():
+    print '''Usage: ptpl [OPTIONS]
+
+Utiliy to create source files templates according some basic informations,
+such as purpose of the code, programming language, etc.
+
+Options:
+    -h                      Shows this help screen.
+    -v                      Shows the utility latest version.
+    -t [type_of_sources]    Indicates the type of source that will be created.
+    -n [name]               Indicates the main name of the source project
+                            template created.
+    -L [language]           Indicates the programming language of the templates
+                            that will be created (default: C).
+    -A [author name]        Indicates the main author name of the project that
+                            will be created.
+    -C [compiler name]      Indicates the compiler to include on the Makefile
+                            created (default: gcc).
+    -q                      Enable quiet mode.
+    -S [sources file names] List of source file names to include on the project.
+    -H [headers file names] List of header file names to include on the project.
+
+Type of Sources: Indication of what type of template project will be created.
+The following types are supported:
+
+    source          Indicates the creation of a single source file.
+    header          Indicates the creation of a single header file.
+    application     Indicates the creation of a directory, with the following
+                    structure $name/{include,src}, containing template files
+                    for a single application (with a main function).
+    library         Indicates the creation of a directory to hold a library
+                    development project, with a specific Makefile.
+
+Supported programming languages:
+    C
+    Java (wip)
+    Python (wip)
+'''
+
+
+
+def main():
+    options = TplOptions()
+    optlist, args = getopt.getopt(sys.argv[1:], 'hvt:n:qL:A:C:S:H:')
+
+    for o, a in optlist:
+        if o == '-h':
+            help()
+            return 1
+        elif o == '-v':
+            version()
+            return 2
+        elif o == '-t':
+            options.set_value(OPKEY_PROJECT_TYPE, a)
+        elif o == '-n':
+            options.set_value(OPKEY_PROJECT_NAME, a)
+        elif o == '-L':
+            options.set_value(OPKEY_LANGUAGE, a)
+        elif o == '-A':
+            options.set_value(OPKEY_AUTHOR_NAME, a)
+        elif o == '-C':
+            options.set_value(OPKEY_COMPILER, a)
+        elif o == '-q':
+            options.set_value(OPKEY_QUIET_MODE, True)
+        elif o == '-S':
+            options.set_value(OPKEY_ADDITIONAL_SOURCES, a)
+        elif o == '-H':
+            options.set_value(OPKEY_ADDITIONAL_HEADERS, a)
+
+    try:
+        p = TplProject(options)
+    except TplCreationError as e:
+        print e.msg
+        return -1
+
+    if p.create() < 0:
+        return -1
+
+    return 0
+
+
+
+if __name__ == '__main__':
+    sys.exit(main())
+
+
+

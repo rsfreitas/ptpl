@@ -139,7 +139,6 @@ class TplCreationError(Exception):
         self.msg = msg
 
 
-
     def __str__(self):
         return self.msg
 
@@ -173,7 +172,6 @@ class TplOptions:
         self.set_value(OPKEY_AUTHOR_NAME, self.__git_author_name())
 
 
-
     def __create_filenames(self, filenames_type):
         files = []
         ptype = self.get_value(OPKEY_PROJECT_TYPE)
@@ -205,14 +203,12 @@ class TplOptions:
         return files
 
 
-
     def __file_list(self, files):
         if len(files) == 0:
             return []
 
         # The file names must be separated by white space
         return files.split(' ')
-
 
 
     def set_value(self, key, value):
@@ -227,7 +223,6 @@ class TplOptions:
         return True
 
 
-
     def get_value(self, key):
         if key not in self.keys:
             return False
@@ -235,10 +230,8 @@ class TplOptions:
         return self.options.get(key)
 
 
-
     def __git_author_name(self):
         return commands.getoutput('git config user.name')
-
 
 
     def __is_valid_project_type(self):
@@ -249,7 +242,6 @@ class TplOptions:
         return True
 
 
-
     def __is_valid_project_name(self):
         if len(self.get_value(OPKEY_PROJECT_NAME)) == 0:
             return False
@@ -257,13 +249,11 @@ class TplOptions:
         return True
 
 
-
     def __is_language_supported(self):
         if self.get_value(OPKEY_LANGUAGE) == C_LANGUAGE:
             return True
 
         return False
-
 
 
     def validate(self):
@@ -295,7 +285,6 @@ class TplOptions:
         return True
 
 
-
     def __project_type(self):
         desc = self.get_value(OPKEY_PROJECT_TYPE)
 
@@ -306,7 +295,6 @@ class TplOptions:
             desc = 'Single file'
 
         return desc
-
 
 
     def __str__(self):
@@ -358,7 +346,6 @@ class TplProject:
         }
 
 
-
     def __make_header_content(self, filename):
         u = filename.replace('.', '_').upper();
         s = '''
@@ -370,7 +357,6 @@ class TplProject:
 ''' % (u, u)
 
         return s
-
 
 
     def __create_single_file(self, project_type='', filename='', dest_dir=''):
@@ -409,7 +395,6 @@ class TplProject:
         fd.close()
 
 
-
     def __create_directory_structure(self):
         root_dirname = self.prefix + \
                 self.options.get_value(OPKEY_PROJECT_NAME).replace('_', '-')
@@ -428,7 +413,6 @@ class TplProject:
                 raise
 
         return root_dirname, subdirs
-
 
 
     def __create_makefile(self, dest_dir=''):
@@ -453,7 +437,6 @@ class TplProject:
 
         fd.write(output)
         fd.close()
-
 
 
     def __create_c_project(self):
@@ -489,7 +472,6 @@ class TplProject:
             print self.options
 
         return 0
-
 
 
     def create(self):

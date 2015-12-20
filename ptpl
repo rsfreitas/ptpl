@@ -59,7 +59,7 @@ comment = '''
 /*
  * Description:
  * Author: $FULL_AUTHOR_NAME
- * Date: $DATE
+ * Created at: $DATE
  * Project: $PROJECT_NAME
  */
 
@@ -370,10 +370,14 @@ class TplProject:
             project_type = self.options.get_value(OPKEY_PROJECT_TYPE)
 
         if project_type == PTYPE_SOURCE:
-            filename += '.c'
+            if ".c" not in filename:
+                filename += '.c'
+
             content = ''
         elif project_type == PTYPE_HEADER:
-            filename += '.h'
+            if ".h" not in filename:
+                filename += '.h'
+
             content = self.__make_header_content(filename)
 
         if len(dest_dir) != 0:

@@ -28,6 +28,10 @@ PTYPE_SOURCE = 'source'
 PTYPE_HEADER = 'header'
 PTYPE_APPLICATION = 'application'
 PTYPE_LIBRARY = 'library'
+PTYPE_LIBCOLLECTION_APP = 'libcollection-app'
+PTYPE_LIBCOLLECTION_C_PLUGIN = 'libcollection-c-plugin'
+PTYPE_LIBCOLLECTION_PY_PLUGIN = 'libcollection-py-plugin'
+PTYPE_LIBCOLLECTION_JAVA_PLUGIN = 'libcollection-java-plugin'
 
 class BaseTemplate(object):
     """
@@ -37,11 +41,17 @@ class BaseTemplate(object):
 
     @abstractmethod
     def create(self):
+        """
+        Method to create the required project.
+        """
         pass
 
 
     @abstractmethod
     def info(self):
+        """
+        Method to show all info of the project in a user friendly format.
+        """
         pass
 
 

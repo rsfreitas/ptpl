@@ -22,6 +22,7 @@ Project template creation.
 """
 
 import time
+import collections
 
 from .templates import *
 
@@ -32,10 +33,48 @@ def supported_projects():
     """
     Gets all supported project formats.
 
-    :return Returns a list of all supported projects.
+    :return Returns a dictionary with all supported project as keys and a brief
+            description of each one.
     """
-    return [base.PTYPE_SOURCE, base.PTYPE_HEADER, base.PTYPE_APPLICATION,
-            base.PTYPE_LIBRARY]
+    return {
+        base.PTYPE_SOURCE : 'Indicates the creation of a single source file.',
+        base.PTYPE_HEADER : 'Indicates the creation of a single header file.',
+        base.PTYPE_APPLICATION :
+            '''Indicates the creation of a directory with the following
+            \t\tstructure: $name/{include,src}, containing template files for
+            \t\ta single application (with a main function).''',
+
+        base.PTYPE_LIBRARY:
+            '''Indicates the creation of a directory to hold a library
+            \t\tdevelopment project, with a specific Makefile.''',
+
+        base.PTYPE_LIBCOLLECTION_APP :
+            '''Indicates the creation of an application using
+            \t\tlibcollections as its base.''',
+
+        base.PTYPE_LIBCOLLECTION_C_PLUGIN :
+            '''Indicates the creation of a libcollections' plugin (C)''',
+
+        base.PTYPE_LIBCOLLECTION_PY_PLUGIN :
+            '''Indicates the creation of a libcollections' plugin (Python)''',
+
+        base.PTYPE_LIBCOLLECTION_JAVA_PLUGIN :
+            '''Indicates the creation of a libcollections' plugin (Java)'''
+    }
+
+
+
+def supported_projects_description():
+    """
+    Returns a string containing a formatted output of all supported projects.
+    """
+    data = collections.OrderedDict(sorted(supported_projects().items()))
+    description = ''
+
+    for key, value in data.iteritems():
+        description += '%-25s - %s\n' % (key, value)
+
+    return description
 
 
 

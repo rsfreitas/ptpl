@@ -47,19 +47,13 @@ basic informations, such as purpose of the code, programming language, etc.'''
 will be created.
 The following types are supported:
 
-    source          Indicates the creation of a single source file.
-    header          Indicates the creation of a single header file.
-    application     Indicates the creation of a directory, with the following
-                    structure $name/{include,src}, containing template files
-                    for a single application (with a main function).
-    library         Indicates the creation of a directory to hold a library
-                    development project, with a specific Makefile.
+%s
 
 Supported programming languages:
     C
     Python (future)
     Rust (future)
-'''
+''' % project.supported_projects_description()
 
     parser = argparse.ArgumentParser(
         prog=progname, usage=usage,
@@ -107,8 +101,12 @@ Supported programming languages:
                              'project.',
                         dest='headers')
 
+    parser.add_argument('-l', '--license',
+                        help='Optional code license.', default=None,
+                        dest='license')
+
     args = parser.parse_args()
-    projects = project.supported_projects()
+    projects = project.supported_projects().keys()
     languages = project.supported_languages()
     args.sources = utils.multiple_split(args.sources)
     args.headers = utils.multiple_split(args.headers)

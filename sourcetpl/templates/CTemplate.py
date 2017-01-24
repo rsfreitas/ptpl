@@ -40,9 +40,20 @@ comment = '''
 
 '''
 
-app_makefile = '''
+app_makefile = '''.PHONY: outputdirs
+
 CC = $COMPILER
-TARGET = ../bin/$PROJECT_NAME
+
+machine = $(shell uname -m)
+
+ifeq ($(machine), x86_64)
+    ARCH_DIR = x86_64
+else
+    ARCH_DIR = x86
+endif
+
+OUTPUTDIR = ../bin/$(ARCH_DIR)
+TARGET = $(OUTPUTDIR)/$PROJECT_NAME
 
 INCLUDEDIR = -I../include
 
@@ -51,15 +62,19 @@ CFLAGS = -Wall -Wextra -O0 -ggdb $(INCLUDEDIR)
 LIBDIR = -L/usr/local/lib
 LIBS =
 
-OBJS = main.o
+C_FILES := $(wildcard *.c)
+OBJS = $(C_FILES:.c=.o)
 
-$(TARGET): $(OBJS)
+$(TARGET): outputdirs $(OBJS)
 	$(CC) -o $(TARGET) $(OBJS) $(LIBDIR) $(LIBS)
 
 clean:
-	rm -rf $(OBJS) $(TARGET)
+	rm -rf $(OBJS) $(TARGET) *~ ../include/*~
 
 purge: clean $(TARGET)
+outputdirs: $(OUTPUTDIR)
+$(OUTPUTDIR):
+	mkdir -p $(OUTPUTDIR)
 '''
 
 lib_makefile = '''
@@ -177,7 +192,10 @@ class CTemplate(base.BaseTemplate):
         except OSError:
             raise
 
-        subdirs = [ 'src', 'include', 'bin' ]
+        subdirs = ['src', 'include', 'bin', 'po']
+
+        if self._args.project_type != base.PTYPE_LIBRARY:
+            subdirs.append('doc')
 
         for d in subdirs:
             try:

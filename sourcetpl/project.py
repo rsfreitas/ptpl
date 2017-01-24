@@ -96,23 +96,29 @@ class Template(object):
     """
     def __init__(self, args):
         self._args = args
-        prefix = self._project_prefix()
+        self._args.prefix = self._project_prefix()
+        self._args.root_dir = ''
 
         self._common_vars = {
             'DATE': time.strftime('%c'),
             'YEAR': time.strftime('%Y'),
             'FULL_AUTHOR_NAME': self._args.author,
             'COMPILER': self._args.compiler,
-            'PROJECT_NAME': prefix + \
+            'PROJECT_NAME': self._args.prefix + \
                     self._args.project_name.replace('-', '_'),
-            'PROJECT_NAME_UPPER': prefix.upper() + \
+            'PROJECT_NAME_UPPER': self._args.prefix.upper() + \
                     self._args.project_name.upper().replace('-', '_')
         }
 
+        if self._args.package is True:
+            self._package = package.Package(args, self._common_vars)
+            self._args.root_dir = self._package.current_dir()
+
         self._template = {
-            C_LANGUAGE: CTemplate.CTemplate(self._args, self._common_vars,
-                                            prefix)
+            C_LANGUAGE: CTemplate.CTemplate(self._args, self._common_vars)
         }.get(self._args.language)
+
+        # TODO: Download the code license
 
 
     def _project_prefix(self):
@@ -125,6 +131,13 @@ class Template(object):
 
 
     def create(self):
+        """
+        Create our template. If a package is required, we must create the
+        templates inside its directory.
+        """
+        if self._args.package is True:
+            self._package.create()
+
         self._template.create()
 
 

@@ -125,18 +125,56 @@ install:
 '''
 
 
+
 class CTemplate(base.BaseTemplate):
-    def __init__(self, args, project_vars, prefix):
+    def __init__(self, args, project_vars):
         self._args = args
+        print self._args
         self._project_vars = project_vars
-        self._prefix = prefix
-        print 'ola'
+
+        self._add_project_sources()
+        self._add_project_headers()
+
+
+    def _add_project_headers(self):
+        """
+        Add default header files to each specific project type.
+        """
+        app_name = self._args.project_name.lower()
+
+        if self._args.project_type in (base.PTYPE_APPLICATION,\
+                base.PTYPE_LIBCOLLECTION_APP):
+            self._args.headers.append(app_name)
+
+            for suffix in ['_prt', '_def', '_struct']:
+                self._args.headers.append(app_name + suffix)
+
+        if self._args.project_type == base.PTYPE_LIBRARY:
+            self._args.headers.append(self._args.prefix + app_name)
+
+
+    def _add_project_sources(self):
+        """
+        Add default source files to each specific project type.
+        """
+        if self._args.project_type in (base.PTYPE_APPLICATION,\
+                base.PTYPE_LIBCOLLECTION_APP):
+            self._args.sources.append('main')
+
+        if self._args.project_type == base.PTYPE_LIBCOLLECTION_APP:
+            for filename in ['log', 'config', 'core']:
+                self._args.sources.append(filename)
+
+        if self._args.project_type == base.PTYPE_LIBRARY:
+            self._args.sources.append('utils')
 
 
     def __make_header_content(self, filename):
+        """
+        Create the beginning of a header file.
+        """
         u = filename.replace('.', '_').upper()
-        s = '''
-#ifndef _%s
+        s = '''#ifndef _%s
 #define _%s     1
 
 #endif
@@ -173,19 +211,22 @@ class CTemplate(base.BaseTemplate):
         dest_dir += filename
         output = Template(comment).safe_substitute(self._project_vars)
 
-        # TODO: replace with with
-        fd = open(dest_dir, 'w')
-        fd.write(output)
+        with open(dest_dir, 'w') as out_fd:
+            out_fd.write(output)
 
-        if len(content) != 0:
-            fd.write(content)
-
-        fd.close()
+            if len(content) != 0:
+                out_fd.write(content)
 
 
     def __create_directory_structure(self):
-        root_dirname = self._prefix + \
+        """
+        Creates all projects required directories.
+        """
+        root_dirname = self._args.prefix + \
                 self._args.project_name.replace('_', '-')
+
+        if self._args.package is True:
+            root_dirname = self._args.root_dir + '/' + root_dirname
 
         try:
             os.mkdir(root_dirname)
@@ -219,10 +260,8 @@ class CTemplate(base.BaseTemplate):
 
         dest_dir += 'Makefile'
 
-        # TODO: replace with with
-        fd = open(dest_dir, 'w')
-        fd.write(output)
-        fd.close()
+        with open(dest_dir, 'w') as out_fd:
+            out_fd.write(output)
 
 
     def create(self):
@@ -255,9 +294,6 @@ class CTemplate(base.BaseTemplate):
 
     def info(self):
         # TODO: print project description
-#        if self._args.quiet is False:
-#            print self.options
-
         pass
 
 

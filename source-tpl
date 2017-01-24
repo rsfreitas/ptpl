@@ -105,13 +105,15 @@ Supported programming languages:
                         help='Optional code license.', default=None,
                         dest='license')
 
+    parser.add_argument('-P', '--package',
+                        help='Indicates that the project belongs to a package.',
+                        default=False, action='store_true', dest='package')
+
     args = parser.parse_args()
     projects = project.supported_projects().keys()
     languages = project.supported_languages()
     args.sources = utils.multiple_split(args.sources)
     args.headers = utils.multiple_split(args.headers)
-    print projects
-    print args
 
     if not any(args.project_type == proj for proj in projects):
         log.error('Invalid project type')

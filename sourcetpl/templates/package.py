@@ -24,13 +24,14 @@ Functions to control a package creation.
 import os
 
 from string import Template
+from . import FileTemplate
 
 PREFIX = 'package'
 
-build_package = '''
+BUILD_PACKAGE = '''
 '''
 
-clean_package = '''#!/bin/bash
+CLEAN_PACKAGE = '''#!/bin/bash
 
 package_dir=../../
 
@@ -45,18 +46,18 @@ done
 exit 0
 '''
 
-deb_scripts = '''#!/bin/bash
+DEB_SCRIPTS = '''#!/bin/bash
 
 exit 0
 '''
 
-cron = '''SHELL=/bin/sh
+CRON = '''SHELL=/bin/sh
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 
 */1 * * * *    root    /etc/init.d/$PROJECT_NAME.sh status || /etc/init.d/$PROJECT_NAME.sh start
 '''
 
-initd = '''#!/bin/sh
+INITD = '''#!/bin/sh
 
 . /lib/lsb/init-functions
 
@@ -123,12 +124,55 @@ class Package(object):
         self._root_dir = PREFIX + '-' + \
                 self._args.prefix + self._args.project_name.replace('_', '-')
 
+        self._files = FileTemplate.FileTemplateInfo()
+        self._prepare_package_files()
+
 
     def current_dir(self):
         """
         Returns package current root directory.
         """
         return self._root_dir
+
+
+    def _prepare_package_files(self):
+        """
+        """
+        prefix = self._args.project_name.replace('-', '_')
+        files = [
+            # debian scripts
+            ('postinst', True, 'debian',
+                Template(DEB_SCRIPTS).safe_substitute(self._project_vars)),
+
+            ('postrm', True, 'debian',
+                Template(DEB_SCRIPTS).safe_substitute(self._project_vars)),
+
+            ('preinst', True, 'debian',
+                Template(DEB_SCRIPTS).safe_substitute(self._project_vars)),
+
+            ('prerm', True, 'debian',
+                Template(DEB_SCRIPTS).safe_substitute(self._project_vars)),
+
+            # build-package
+            ('build-package', True, 'mount',
+                Template(BUILD_PACKAGE).safe_substitute(self._project_vars)),
+
+            # clean-package
+            ('clean-package', True, 'mount',
+                Template(CLEAN_PACKAGE).safe_substitute(self._project_vars)),
+
+            # cron
+            (prefix + '_cron', False, 'misc',
+                Template(CRON).safe_substitute(self._project_vars)),
+
+            # initd
+            (prefix + '_initd', True, 'misc',
+                Template(INITD).safe_substitute(self._project_vars))
+        ]
+
+        for script in files:
+            self._files.add(script[0], script[2], data=script[3],
+                            executable=script[1])
 
 
     def _create_directories(self):
@@ -148,66 +192,22 @@ class Package(object):
                 os.mkdir(self._root_dir + '/' + directory[0] + '/' + subdir)
 
 
-    def _create_debian_scripts(self):
-        """
-        Creates the debian package required scripts.
-        """
-        output = Template(deb_scripts).safe_substitute(self._project_vars)
-
-        for filename in ['postinst', 'preinst', 'postrm', 'prerm']:
-            pathname = self._root_dir + '/package/debian/' + filename
+    def _create_files(self):
+        for filename in self._files.filenames():
+            file_data = self._files.properties(filename)
+            pathname = self._root_dir + '/package/' + file_data.get('path') + \
+                    '/' + filename
 
             with open(pathname, 'w') as out_fd:
-                out_fd.write(output)
+                out_fd.write(file_data.get('data'))
 
-            os.system('chmod +x %s' % pathname)
-
-
-    def _create_package_misc_scripts(self):
-        """
-        Creates a bunch of scripts for the package.
-        """
-        # Creates the cron script
-        suffixes = ['_cron', '_initd']
-        output = [
-            Template(cron).safe_substitute(self._project_vars),
-            Template(initd).safe_substitute(self._project_vars)
-        ]
-
-        path = self._root_dir + '/package/misc/' + \
-                self._args.project_name.replace('-', '_')
-
-        for data, suffix in zip(output, suffixes):
-            with open(path + suffix, 'w') as out_fd:
-                out_fd.write(data)
-
-        os.system('chmod +x %s' % path + '_initd')
-
-
-    def _create_package_handle_scripts(self):
-        """
-        Create scripts to build the package.
-        """
-        names = ['buid-package', 'clean-package']
-        output = [
-            Template(build_package).safe_substitute(self._project_vars),
-            Template(clean_package).safe_substitute(self._project_vars)
-        ]
-
-        path = self._root_dir + '/package/mount/'
-
-        for data, name in zip(output, names):
-            with open(path + name, 'w') as out_fd:
-                out_fd.write(data)
-
-            os.system('chmod +x %s' % path + name)
+            if file_data.get('chmod') is True:
+                os.system('chmod +x %s' % pathname)
 
 
     def create(self):
         self._create_directories()
-        self._create_debian_scripts()
-        self._create_package_misc_scripts()
-        self._create_package_handle_scripts()
+        self._create_files()
 
 
 

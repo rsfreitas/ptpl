@@ -141,7 +141,13 @@ def main():
     if args.quiet is False:
         tpl.info()
 
-    return tpl.create()
+    try:
+        tpl.create()
+    except Exception as error:
+        log.error(error)
+        return -1
+
+    return 0
 
 
 

@@ -26,8 +26,12 @@ import os
 from string import Template
 
 from . import base
+from . import FileTemplate
 
-comment = '''
+HEADER_EXTENSION = '.h'
+SOURCE_EXTENSION = '.c'
+
+COMMENT = '''
 /*
  * Description:
  *
@@ -40,7 +44,7 @@ comment = '''
 
 '''
 
-app_makefile = '''.PHONY: outputdirs
+APP_MAKEFILE = '''.PHONY: outputdirs
 
 CC = $COMPILER
 
@@ -77,7 +81,7 @@ $(OUTPUTDIR):
 	mkdir -p $(OUTPUTDIR)
 '''
 
-lib_makefile = '''
+LIB_MAKEFILE = '''
 CC = $COMPILER
 
 PCT_VERSION = $(shell grep -w VERSION ../include/${PROJECT_NAME}_internal.h | awk '{print $$$4}' | cut -d \\" -f 2)
@@ -124,101 +128,124 @@ install:
 	ln -s $(USR_DIR)/$(DEST_LIBNAME) $(USR_DIR)/$(SONAME)
 '''
 
-
-
 class CTemplate(base.BaseTemplate):
     def __init__(self, args, project_vars):
         self._args = args
-        print self._args
         self._project_vars = project_vars
 
-        self._add_project_sources()
-        self._add_project_headers()
+        # Store the real info from each source/header which will be created.
+        self._files = FileTemplate.FileTemplateInfo()
+        self._prepare_project_files()
 
 
-    def _add_project_headers(self):
+    def _get_header_content(self, filename):
+        upper_filename = filename.replace('.', '_').upper()
+        # TODO: insert the content
+        content = ''
+        return '''#ifndef _%s
+#define _%s     1
+%s
+#endif
+
+''' % (upper_filename, upper_filename, content)
+
+
+    def _add_file(self, filename, path='src', extension=SOURCE_EXTENSION):
         """
-        Add default header files to each specific project type.
+        Adds a file into the internal FileTemplate object. Here we also
+        """
+        if extension == HEADER_EXTENSION:
+            content = self._get_header_content(filename)
+        else:
+            content = None
+
+        self._files.add(filename, path, content)
+        self._files.set_property(filename, 'extension', extension)
+        self._files.set_property(filename, 'comment', True)
+
+
+    def _add_makefile(self):
+        """
+        Adds a Makefile to the project.
+        """
+        mcontent = {
+            base.PTYPE_APPLICATION: APP_MAKEFILE,
+            base.PTYPE_LIBRARY: LIB_MAKEFILE
+        }.get(self._args.project_type)
+
+        self._files.add('Makefile', 'src',
+                        Template(mcontent).safe_substitute(self._project_vars))
+
+
+    def _prepare_project_files(self):
+        """
+        Prepare all project files (sources and headers).
         """
         app_name = self._args.project_name.lower()
 
-        if self._args.project_type in (base.PTYPE_APPLICATION,\
+        # Is just a single file?
+        if self._args.project_type in (base.PTYPE_SOURCE, base.PTYPE_HEADER):
+            extension = {
+                base.PTYPE_SOURCE: SOURCE_EXTENSION,
+                base.PTYPE_HEADER: HEADER_EXTENSION
+            }.get(self._args.project_type)
+
+            self._add_file(self._args.project_name, '', extension)
+            return
+        else:
+            self._add_makefile()
+
+        if self._args.project_type in (base.PTYPE_APPLICATION, \
                 base.PTYPE_LIBCOLLECTION_APP):
-            self._args.headers.append(app_name)
+            self._add_file(app_name, 'include', HEADER_EXTENSION)
+            self._add_file('main')
 
             for suffix in ['_prt', '_def', '_struct']:
-                self._args.headers.append(app_name + suffix)
+                self._add_file(app_name + suffix, 'include', HEADER_EXTENSION)
+
+            if self._args.project_type == base.PTYPE_LIBCOLLECTION_APP:
+                for filename in ['log', 'config', 'core']:
+                    self._add_file(filename)
 
         if self._args.project_type == base.PTYPE_LIBRARY:
-            self._args.headers.append(self._args.prefix + app_name)
+            self._add_file('utils')
+            self._add_file(self._args.prefix + app_name, 'include',
+                           HEADER_EXTENSION)
+
+        for filename in self._args.sources:
+            self._add_file(filename)
+
+        for filename in self._args.headers:
+            self._add_file(filename, 'include', HEADER_EXTENSION)
 
 
-    def _add_project_sources(self):
-        """
-        Add default source files to each specific project type.
-        """
-        if self._args.project_type in (base.PTYPE_APPLICATION,\
-                base.PTYPE_LIBCOLLECTION_APP):
-            self._args.sources.append('main')
+    def _create_single_file(self, filename, root_dir):
+        file_data = self._files.properties(filename)
+        extension = file_data.get('extension', '')
+        path = file_data.get('path')
+        content = file_data.get('data')
+        comment = file_data.get('comment', False)
 
-        if self._args.project_type == base.PTYPE_LIBCOLLECTION_APP:
-            for filename in ['log', 'config', 'core']:
-                self._args.sources.append(filename)
+        if extension not in filename:
+            filename += extension
 
-        if self._args.project_type == base.PTYPE_LIBRARY:
-            self._args.sources.append('utils')
+        if len(root_dir):
+            pathname = root_dir + '/' + path + '/' + filename
+        else:
+            pathname = filename
 
+        if comment is True:
+            comment_cnt = Template(COMMENT).safe_substitute(self._project_vars)
 
-    def __make_header_content(self, filename):
-        """
-        Create the beginning of a header file.
-        """
-        u = filename.replace('.', '_').upper()
-        s = '''#ifndef _%s
-#define _%s     1
+        with open(pathname, 'w') as out_fd:
+            if comment is True:
+                out_fd.write(comment_cnt)
 
-#endif
-
-''' % (u, u)
-
-        return s
-
-
-    def __create_single_file(self, project_type='', filename='', dest_dir=''):
-        """
-        Saves the template of a single source/header file.
-        """
-        if len(filename) == 0:
-            filename = self._args.project_name
-
-        if len(project_type) == 0:
-            project_type = self._args.project_type
-
-        if project_type == base.PTYPE_SOURCE:
-            if ".c" not in filename:
-                filename += '.c'
-
-            content = ''
-        elif project_type == base.PTYPE_HEADER:
-            if ".h" not in filename:
-                filename += '.h'
-
-            content = self.__make_header_content(filename)
-
-        if len(dest_dir) != 0:
-            dest_dir += '/'
-
-        dest_dir += filename
-        output = Template(comment).safe_substitute(self._project_vars)
-
-        with open(dest_dir, 'w') as out_fd:
-            out_fd.write(output)
-
-            if len(content) != 0:
+            if content is not None:
                 out_fd.write(content)
 
 
-    def __create_directory_structure(self):
+    def _create_directory_structure(self):
         """
         Creates all projects required directories.
         """
@@ -244,52 +271,20 @@ class CTemplate(base.BaseTemplate):
             except OSError:
                 raise
 
-        return root_dirname, subdirs
-
-
-    def __create_makefile(self, dest_dir=''):
-        mcontent = {
-            base.PTYPE_APPLICATION: app_makefile,
-            base.PTYPE_LIBRARY: lib_makefile
-        }.get(self._args.project_type)
-
-        output = Template(mcontent).safe_substitute(self._project_vars)
-
-        if len(dest_dir) != 0:
-            dest_dir += '/'
-
-        dest_dir += 'Makefile'
-
-        with open(dest_dir, 'w') as out_fd:
-            out_fd.write(output)
+        return root_dirname
 
 
     def create(self):
-        if self._args.project_type in (base.PTYPE_SOURCE, base.PTYPE_HEADER):
-            self.__create_single_file()
-            return
+        if self._args.project_type not in (base.PTYPE_SOURCE, base.PTYPE_HEADER):
+            try:
+                root_dir = self._create_directory_structure()
+            except:
+                raise
+        else:
+            root_dir = ''
 
-        sources = self._args.sources
-        headers = self._args.headers
-
-        try:
-            dirs = self.__create_directory_structure()
-        except OSError as e:
-            print e
-            return -1
-
-        src_dir = dirs[0] + '/src'
-        header_dir = dirs[0] + '/include'
-
-        for f in sources:
-            self.__create_single_file(base.PTYPE_SOURCE, f, src_dir)
-
-        for f in headers:
-            self.__create_single_file(base.PTYPE_HEADER, f, header_dir)
-
-        self.__create_makefile(src_dir)
-
-        return 0
+        for filename in self._files.filenames():
+            self._create_single_file(filename, root_dir)
 
 
     def info(self):

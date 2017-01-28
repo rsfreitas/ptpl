@@ -53,7 +53,7 @@ machine = $(shell uname -m)
 ifeq ($(machine), x86_64)
     ARCH_DIR = x86_64
 else
-    ARCH_DIR = x86
+    ARCH_DIR = i686
 endif
 
 OUTPUTDIR = ../bin/$(ARCH_DIR)
@@ -142,6 +142,7 @@ class CTemplate(base.BaseTemplate):
         upper_filename = filename.replace('.', '_').upper()
         # TODO: insert the content
         content = ''
+
         return '''#ifndef _%s
 #define _%s     1
 %s

@@ -25,9 +25,7 @@ import sys
 import argparse
 import textwrap
 
-from sourcetpl import log
-from sourcetpl import utils
-from sourcetpl import project
+from sourcetpl import log, utils, project, languages
 
 VERSION = '0.1.1'
 
@@ -76,7 +74,7 @@ Supported programming languages:
 
     parser.add_argument('-L', '--language',
                         help='Indicates the project\'s programming language.',
-                        dest='language', default=project.C_LANGUAGE)
+                        dest='language', default=languages.C_LANGUAGE)
 
     parser.add_argument('-A', '--author',
                         help='Indicates the project\'s author name.',
@@ -115,7 +113,7 @@ Supported programming languages:
 
     args = parser.parse_args()
     projects = project.supported_projects().keys()
-    languages = project.supported_languages()
+    supported_languages = project.supported_languages()
     args.sources = utils.multiple_split(args.sources)
     args.headers = utils.multiple_split(args.headers)
 
@@ -123,7 +121,7 @@ Supported programming languages:
         log.error('Invalid project type')
         return None
 
-    if not any(args.language == lang for lang in languages):
+    if not any(args.language == lang for lang in supported_languages):
         log.error('Unsupported language')
         return None
 
@@ -148,7 +146,7 @@ def main():
     try:
         tpl.create()
     except Exception as error:
-        log.error(error)
+        log.error(str(error))
         return -1
 
     return 0

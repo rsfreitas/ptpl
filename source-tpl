@@ -1,0 +1,162 @@
+#!/usr/bin/python
+
+#
+# ptpl is a script to create source project templates to improve
+# software development.
+#
+# Copyright (C) 2015 Rodrigo Freitas
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+
+import sys
+import argparse
+import textwrap
+
+from sourcetpl import log
+from sourcetpl import utils
+from sourcetpl import project
+
+VERSION = '0.1.1'
+
+def parse_arguments():
+    """
+    Parse all command line arguments.
+
+    :return On success returns an object with all project options or None
+            otherwise.
+    """
+    progname = 'source-tpl'
+    usage = '%(prog)s [OPTIONS]'
+    description = '''Utiliy to create source files templates according some
+basic informations, such as purpose of the code, programming language, etc.'''
+
+    epilog = '''Type of Sources: Indication of what type of template project \
+will be created.
+The following types are supported:
+
+%s
+
+Supported programming languages:
+    C
+    Python (future)
+    Rust (future)
+''' % project.supported_projects_description()
+
+    parser = argparse.ArgumentParser(
+        prog=progname, usage=usage,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description=description,
+        epilog=textwrap.dedent(epilog)
+    )
+
+    parser.add_argument('-v', '--version', action='version',
+                        help='Shows the utility latest version.',
+                        version=VERSION)
+
+    parser.add_argument('-t', '--type', required=True,
+                        help='Indicates the project\'s type.',
+                        dest='project_type')
+
+    parser.add_argument('-n', '--name', required=True,
+                        help='Indicates the project\'s name.',
+                        dest='project_name')
+
+    parser.add_argument('-L', '--language',
+                        help='Indicates the project\'s programming language.',
+                        dest='language', default=project.C_LANGUAGE)
+
+    parser.add_argument('-A', '--author',
+                        help='Indicates the project\'s author name.',
+                        dest='author', default=utils.git_author_name())
+
+    parser.add_argument('-C', '--compiler',
+                        help='Indicates the compiler to include in the '
+                             'Makefile (default: gcc).',
+                        dest='compiler', default='gcc')
+
+    parser.add_argument('-q', '--quiet',
+                        help='Enables quiet mode.', dest='quiet',
+                        action='store_true', default=False)
+
+    parser.add_argument('-S', '--sources',
+                        help='List of source file names to create with the '
+                             'project.',
+                        dest='sources')
+
+    parser.add_argument('-H', '--headers',
+                        help='List of header file names to create with the '
+                             'project.',
+                        dest='headers')
+
+    parser.add_argument('-l', '--license',
+                        help='Optional code license.', default=None,
+                        dest='license')
+
+    parser.add_argument('-P', '--package',
+                        help='Indicates that the project belongs to a package.',
+                        default=False, action='store_true', dest='package')
+
+    parser.add_argument('-c', '--content',
+                        help='The content of a single source/header file.',
+                        dest='content', default=None)
+
+    args = parser.parse_args()
+    projects = project.supported_projects().keys()
+    languages = project.supported_languages()
+    args.sources = utils.multiple_split(args.sources)
+    args.headers = utils.multiple_split(args.headers)
+
+    if not any(args.project_type == proj for proj in projects):
+        log.error('Invalid project type')
+        return None
+
+    if not any(args.language == lang for lang in languages):
+        log.error('Unsupported language')
+        return None
+
+    return args
+
+
+
+def main():
+    """
+    Our main function.
+    """
+    args = parse_arguments()
+
+    if args is None:
+        return -1
+
+    tpl = project.Template(args)
+
+    if args.quiet is False:
+        tpl.info()
+
+    try:
+        tpl.create()
+    except Exception as error:
+        log.error(error)
+        return -1
+
+    return 0
+
+
+
+if __name__ == '__main__':
+    sys.exit(main())
+
+
+

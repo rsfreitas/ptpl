@@ -109,6 +109,10 @@ Supported programming languages:
                         help='Indicates that the project belongs to a package.',
                         default=False, action='store_true', dest='package')
 
+    parser.add_argument('-c', '--content',
+                        help='The content of a single source/header file.',
+                        dest='content', default=None)
+
     args = parser.parse_args()
     projects = project.supported_projects().keys()
     languages = project.supported_languages()

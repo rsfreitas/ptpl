@@ -128,6 +128,23 @@ install:
 	ln -s $(USR_DIR)/$(DEST_LIBNAME) $(USR_DIR)/$(SONAME)
 '''
 
+DEF_HEADER = '''
+#define MAJOR           0
+#define MINOR           1
+#define RELEASE         1
+#define BETA            true
+#define BUILD           0
+'''
+
+PACKAGE_DEF_HEADER = '''
+/*
+ * Package version: major, minor and release.
+ */
+#include "../../package_version.h"
+
+#define BUILD           0
+'''
+
 class CTemplate(base.BaseTemplate):
     def __init__(self, args, project_vars):
         self._args = args
@@ -139,12 +156,24 @@ class CTemplate(base.BaseTemplate):
 
 
     def _get_header_content(self, filename):
-        upper_filename = filename.replace('.', '_').upper()
-        # TODO: insert the content
         content = ''
+        upper_filename = filename.replace('.', '_').upper()
 
-        return '''#ifndef _%s
-#define _%s     1
+        if '_def' in filename:
+            if self._args.package is True:
+                content = \
+                    Template(PACKAGE_DEF_HEADER)\
+                        .safe_substitute(self._project_vars)
+            else:
+                content = \
+                    Template(DEF_HEADER).safe_substitute(self._project_vars)
+        else:
+            if self._args.content is not None:
+                content = Template(self._args.content)\
+                                .safe_substitute(self._project_vars)
+
+        return '''#ifndef _%s_H
+#define _%s_H     1
 %s
 #endif
 
@@ -155,10 +184,14 @@ class CTemplate(base.BaseTemplate):
         """
         Adds a file into the internal FileTemplate object. Here we also
         """
+        content = None
+
         if extension == HEADER_EXTENSION:
             content = self._get_header_content(filename)
         else:
-            content = None
+            if self._args.content is not None:
+                content = Template(self._args.content)\
+                                .safe_substitute(self._project_vars)
 
         self._files.add(filename, path, content)
         self._files.set_property(filename, 'extension', extension)

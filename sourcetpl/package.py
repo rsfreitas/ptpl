@@ -24,7 +24,9 @@ Functions to control a package creation.
 import os
 
 from string import Template
-from . import FileTemplate
+
+from . import languages
+from templates import FileTemplate
 
 PREFIX = 'package'
 
@@ -288,8 +290,14 @@ class Package(object):
 
     def _prepare_package_files(self):
         """
+        Adds all required files to a package.
         """
         prefix = self._args.project_name.replace('-', '_')
+        build_package = {
+            languages.C_LANGUAGE: \
+                Template(BUILD_PACKAGE).safe_substitute(self._project_vars)
+        }.get(self._args.language)
+
         files = [
             # debian scripts
             ('postinst', True, 'debian',
@@ -305,8 +313,7 @@ class Package(object):
                 Template(DEB_SCRIPTS).safe_substitute(self._project_vars)),
 
             # build-package
-            ('build-package', True, 'mount',
-                Template(BUILD_PACKAGE).safe_substitute(self._project_vars)),
+            ('build-package', True, 'mount', build_package),
 
             # clean-package
             ('clean-package', True, 'mount',
@@ -332,7 +339,7 @@ class Package(object):
 
     def _create_directories(self):
         """
-        Creates the package structure directories.
+        Create the package required directories.
         """
         subdirs = [
             ['package', ['debian', 'mount', 'misc']]

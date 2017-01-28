@@ -20,7 +20,6 @@
 __all__ = [
     'base',
     'CTemplate',
-    'FileTemplate',
-    'package'
+    'FileTemplate'
 ]
 

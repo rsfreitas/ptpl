@@ -24,10 +24,8 @@ Project template creation.
 import time
 import collections
 
+from . import package, languages
 from .templates import *
-
-# Supported programming languages
-C_LANGUAGE = 'C'
 
 def supported_projects():
     """
@@ -84,7 +82,7 @@ def supported_languages():
 
     :return Returns a list of all supported languages.
     """
-    return [C_LANGUAGE]
+    return [languages.C_LANGUAGE]
 
 
 
@@ -110,12 +108,17 @@ class Template(object):
                     self._args.project_name.upper().replace('-', '_')
         }
 
+        # Disable package flag if we're creating a single file
+        if self._args.project_type in (base.PTYPE_SOURCE, base.PTYPE_HEADER):
+            self._args.package = False
+
         if self._args.package is True:
             self._package = package.Package(args, self._common_vars)
             self._args.root_dir = self._package.current_dir()
 
         self._template = {
-            C_LANGUAGE: CTemplate.CTemplate(self._args, self._common_vars)
+            languages.C_LANGUAGE: CTemplate.CTemplate(self._args,
+                                                      self._common_vars)
         }.get(self._args.language)
 
         # TODO: Download the code license

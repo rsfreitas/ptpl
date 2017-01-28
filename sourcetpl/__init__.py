@@ -18,7 +18,9 @@
 #
 
 __all__ = [
+    'languages',
     'log',
+    'package',
     'project',
     'utils'
 ]

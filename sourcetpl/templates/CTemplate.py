@@ -76,64 +76,138 @@ clean:
 	rm -rf $(OBJS) $(TARGET) *~ ../include/*~
 
 purge: clean $(TARGET)
+
 outputdirs: $(OUTPUTDIR)
 $(OUTPUTDIR):
 	mkdir -p $(OUTPUTDIR)
 '''
 
-LIB_MAKEFILE = '''
+APP_MAKEFILE_PACKAGE = '''.PHONY: outputdirs package_version
+
 CC = $COMPILER
 
-PCT_VERSION = $(shell grep -w VERSION ../include/${PROJECT_NAME}_internal.h | awk '{print $$$4}' | cut -d \\" -f 2)
-MAJOR_VERSION = $(shell grep MAJOR_VERSION ../include/${PROJECT_NAME}_internal.h | awk '{print $$$4}')
-MINOR_VERSION = $(shell grep MINOR_VERSION ../include/${PROJECT_NAME}_internal.h | awk '{print $$$4}')
+machine = $(shell uname -m)
 
-USR_DIR = /usr/local/lib
-LIBNAME = $PROJECT_NAME.so
-SONAME = $(LIBNAME).$(PCT_VERSION).$(MAJOR_VERSION)
-DEST_LIBNAME = $(SONAME).$(MINOR_VERSION)
+ifeq ($(machine), x86_64)
+    ARCH_DIR = x86_64
+else
+    ARCH_DIR = i686
+endif
 
-TARGET = ../bin/$(SONAME)
-TARGET_DEST = ../bin/$(DEST_LIBNAME)
+OUTPUTDIR = ../bin/$(ARCH_DIR)
+TARGET = $(OUTPUTDIR)/$PROJECT_NAME
 
 INCLUDEDIR = -I../include
+
+CFLAGS = -Wall -Wextra -O0 -ggdb $(INCLUDEDIR)
+
+LIBDIR = -L/usr/local/lib
+LIBS =
+
+C_FILES := $(wildcard *.c)
+OBJS = $(C_FILES:.c=.o)
+
+$(TARGET): outputdirs package_version $(OBJS)
+	$(CC) -o $(TARGET) $(OBJS) $(LIBDIR) $(LIBS)
+
+clean:
+	rm -rf $(OBJS) $(TARGET) *~ ../include/*~
+
+purge: clean $(TARGET)
+
+outputdirs: $(OUTPUTDIR)
+$(OUTPUTDIR):
+	mkdir -p $(OUTPUTDIR)
+
+PACKAGE_CONF=package/package.conf
+PACKAGE_VERSION_NAME=package_version
+PACKAGE_VERSION=../../$(PACKAGE_VERSION_NAME).h
+package_version: $(PACKAGE_VERSION)
+$(PACKAGE_VERSION):
+	$(shell (cd ../../ && source-tpl -t header -n $(PACKAGE_VERSION_NAME) \\
+	    -c "^#define PACKAGE_MAJOR_VERSION	`cfget -C $(PACKAGE_CONF) version/major`\\
+	    ^#define PACKAGE_MINOR_VERSION	`cfget -C $(PACKAGE_CONF) version/minor` \\
+	    ^#define PACKAGE_RELEASE		`cfget -C $(PACKAGE_CONF) version/release` \\
+	    ^#define PACKAGE_BETA		`cfget -C $(PACKAGE_CONF) version/beta`^"))
+'''
+
+LIB_MAKEFILE = '''.PHONY: shared static clean dest_clean install outputdirs
+
+CC = $COMPILER
+AR = ar
+
+ARCH_TEST := $(shell uname -m)
+
+ifeq ($(ARCH_TEST), x86_64)
+    ARCH = x86_64
+else
+    ARCH = i686
+endif
+
+MAJOR_VERSION := $(shell command grep MAJOR_VERSION ../include/${PROJECT_NAME}.h | awk '{print $$$4}')
+MINOR_VERSION := $(shell command  grep MINOR_VERSION ../include/${PROJECT_NAME}.h | awk '{print $$$4}')
+RELEASE := $(shell command grep RELEASE ../include/${PROJECT_NAME}.h | awk '{print $$$4}')
+
+USR_DIR = /usr/local/lib
+PREFIX = ${PROJECT_NAME}
+LIBNAME = $(PREFIX).so
+SONAME = $(LIBNAME)
+SHARED_LIBNAME := $(LIBNAME).$(MAJOR_VERSION).$(MINOR_VERSION).$(RELEASE)
+STATIC_LIBNAME := $(PREFIX).a
+
+OUTPUTDIR = ../bin/$(ARCH)
+TARGET_SHARED := $(OUTPUTDIR)/$(SHARED_LIBNAME)
+TARGET_STATIC := $(OUTPUTDIR)/$(STATIC_LIBNAME)
+
+INCLUDEDIR = -I../include
+CFLAGS = -Wall -Wextra -fPIC -ggdb -O0 -g3 -fvisibility=hidden \\
+        -D${PROJECT_NAME_UPPER}_COMPILE -D_GNU_SOURCE $(INCLUDEDIR)
 
 LIBDIR =
 LIBS =
 
-CFLAGS = -Wall -Wextra -fPIC -ggdb -O0 -g3 -fvisibility=hidden \\
-        -D${PROJECT_NAME_UPPER}_COMPILE -D_GNU_SOURCE $(INCLUDEDIR)
-
 VPATH = ../include:.
 
-OBJS = 		\\
-	common.o
+C_FILES := $(wildcard *.c)
+OBJS = $(C_FILES:.c=.o)
 
-$(TARGET): $(OBJS)
-	rm -f ../bin/$(LIBNAME)*
-	$(CC) -shared -Wl,-soname,$(SONAME) -o $(TARGET_DEST) $(OBJS) $(LIBDIR) $(LIBS)
+shared: outputdirs $(OBJS)
+	$(CC) -shared -Wl,-soname,$(SONAME),--version-script,$(PREFIX).sym -o $(TARGET_SHARED) $(OBJS) $(LIBDIR) $(LIBS)
+
+static: outputdirs $(OBJS)
+	$(AR) -sr $(TARGET_STATIC) $(OBJS)
 
 clean:
-	rm -rf $(OBJS) $(TARGET) $(TARGET_DEST) *~ ../include/*~
+	rm -rf $(OBJS) $(TARGET_SHARED) $(TARGET_STATIC) *~ ../include/*~
 
 dest_clean:
 	rm -f $(USR_DIR)/$(LIBNAME)*
 
-purge: clean $(TARGET)
-
 install:
-	cp -f $(TARGET_DEST) $(USR_DIR)
+	cp -f $(TARGET_SHARED) $(USR_DIR)
 	rm -rf $(USR_DIR)/$(LIBNAME) $(USR_DIR)/$(SONAME)
-	ln -s $(USR_DIR)/$(DEST_LIBNAME) $(USR_DIR)/$(LIBNAME)
-	ln -s $(USR_DIR)/$(DEST_LIBNAME) $(USR_DIR)/$(SONAME)
+	ln -s $(USR_DIR)/$(SHARED_LIBNAME) $(USR_DIR)/$(LIBNAME)
+	ln -s $(USR_DIR)/$(SHARED_LIBNAME) $(USR_DIR)/$(SONAME)
+
+outputdirs: $(OUTPUTDIR)
+$(OUTPUTDIR):
+	mkdir -p $(OUTPUTDIR)
+
+'''
+
+LIBSYM = '''${PROJECT_NAME_UPPER}_0.1 {
+    global:
+        *;
+    local:
+        *;
+};
 '''
 
 DEF_HEADER = '''
-#define MAJOR           0
-#define MINOR           1
+#define MAJOR_VERSION   0
+#define MINOR_VERSION   1
 #define RELEASE         1
 #define BETA            true
-#define BUILD           0
 '''
 
 PACKAGE_DEF_HEADER = '''
@@ -145,8 +219,23 @@ PACKAGE_DEF_HEADER = '''
 #define BUILD           0
 '''
 
+MAIN_HEADER = '''
+#include "${PROJECT_NAME}_def.h"
+#include "${PROJECT_NAME}_struct.h"
+#include "${PROJECT_NAME}_prt.h"
+'''
+
+LIB_HEADER = '''
+#ifdef ${PROJECT_NAME_UPPER}_COMPILE
+# define MAJOR_VERSION  0
+# define MINOR_VERSION  1
+# define RELEASE        1
+#endif
+'''
+
 class CTemplate(base.BaseTemplate):
     def __init__(self, args, project_vars):
+        super(CTemplate, self).__init__()
         self._args = args
         self._project_vars = project_vars
 
@@ -155,9 +244,24 @@ class CTemplate(base.BaseTemplate):
         self._prepare_project_files()
 
 
-    def _get_header_content(self, filename):
+    def _library_header(self, _filename):
+        """
+        Decides which file content will be used for a library header.
+        """
         content = ''
-        upper_filename = filename.replace('.', '_').upper()
+
+        if self._args.package is False:
+            content = Template(LIB_HEADER).safe_substitute(self._project_vars)
+
+        return content
+
+
+    def _application_header(self, filename):
+        """
+        Decides which file content will be used for an application header or a
+        single header file.
+        """
+        content = ''
 
         if '_def' in filename:
             if self._args.package is True:
@@ -169,8 +273,29 @@ class CTemplate(base.BaseTemplate):
                     Template(DEF_HEADER).safe_substitute(self._project_vars)
         else:
             if self._args.content is not None:
-                content = Template(self._args.content)\
+                content = Template(self._args.content.replace('^', '\n'))\
                                 .safe_substitute(self._project_vars)
+            elif self._args.project_name == filename:
+                content = Template(MAIN_HEADER)\
+                                .safe_substitute(self._project_vars)
+
+        return content
+
+
+    def _get_header_content(self, filename):
+        """
+        Returns a content to insert in header files. Internally, we check if
+        a content is needed to be inserted together.
+        """
+        content = ''
+        upper_filename = filename.replace('.', '_').upper()
+
+        # Do we have any content to add into the file?
+        get_header = {
+            base.PTYPE_LIBRARY: self._library_header,
+        }.get(self._args.project_type, self._application_header)
+
+        content = get_header(filename)
 
         return '''#ifndef _%s_H
 #define _%s_H     1
@@ -190,7 +315,7 @@ class CTemplate(base.BaseTemplate):
             content = self._get_header_content(filename)
         else:
             if self._args.content is not None:
-                content = Template(self._args.content)\
+                content = Template(self._args.content.replace('^', '\n'))\
                                 .safe_substitute(self._project_vars)
 
         self._files.add(filename, path, content)
@@ -202,10 +327,16 @@ class CTemplate(base.BaseTemplate):
         """
         Adds a Makefile to the project.
         """
-        mcontent = {
-            base.PTYPE_APPLICATION: APP_MAKEFILE,
-            base.PTYPE_LIBRARY: LIB_MAKEFILE
-        }.get(self._args.project_type)
+        if self._args.package is True:
+            mcontent = {
+                base.PTYPE_APPLICATION: APP_MAKEFILE_PACKAGE,
+                base.PTYPE_LIBRARY: LIB_MAKEFILE
+            }.get(self._args.project_type)
+        else:
+            mcontent = {
+                base.PTYPE_APPLICATION: APP_MAKEFILE,
+                base.PTYPE_LIBRARY: LIB_MAKEFILE
+            }.get(self._args.project_type)
 
         self._files.add('Makefile', 'src',
                         Template(mcontent).safe_substitute(self._project_vars))
@@ -245,6 +376,9 @@ class CTemplate(base.BaseTemplate):
             self._add_file('utils')
             self._add_file(self._args.prefix + app_name, 'include',
                            HEADER_EXTENSION)
+
+            self._files.add(self._args.prefix + app_name + '.sym', 'src',
+                            Template(LIBSYM).safe_substitute(self._project_vars))
 
         for filename in self._args.sources:
             self._add_file(filename)
@@ -299,9 +433,9 @@ class CTemplate(base.BaseTemplate):
         if self._args.project_type != base.PTYPE_LIBRARY:
             subdirs.append('doc')
 
-        for d in subdirs:
+        for directory in subdirs:
             try:
-                os.mkdir(root_dirname + '/' + d)
+                os.mkdir(root_dirname + '/' + directory)
             except OSError:
                 raise
 

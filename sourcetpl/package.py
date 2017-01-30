@@ -42,7 +42,7 @@ BUILD_PACKAGE = '''#!/bin/bash
 # Copyright (c) $YEAR All rights reserved
 #
 
-package_conf="../../package.conf"
+package_conf="../package.conf"
 package_tmp_dir=tmpbuild
 arch=i686
 
@@ -357,12 +357,9 @@ class Package(object):
     def _create_files(self):
         for filename in self._files.filenames():
             file_data = self._files.properties(filename)
-            path = file_data.get('path')
 
-            if len(path):
-                pathname = self._root_dir + '/package/' + path + '/' + filename
-            else:
-                pathname = self._root_dir + '/' + filename
+            pathname = self._root_dir + '/package/' + file_data.get('path') \
+                    + '/' + filename
 
             with open(pathname, 'w') as out_fd:
                 out_fd.write(file_data.get('data'))

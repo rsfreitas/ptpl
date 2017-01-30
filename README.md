@@ -11,3 +11,5 @@ A script to create source projects templates.
 * Package with application
 * Package with library
 
+## Dependencies
+

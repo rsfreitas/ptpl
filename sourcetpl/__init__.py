@@ -18,10 +18,13 @@
 #
 
 __all__ = [
+    'base',
     'languages',
     'log',
     'package',
     'project',
-    'utils'
+    'utils',
+    'CTemplate',
+    'FileTemplate'
 ]
 

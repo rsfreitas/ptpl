@@ -24,7 +24,6 @@ __all__ = [
     'package',
     'project',
     'utils',
-    'CTemplate',
     'FileTemplate'
 ]
 

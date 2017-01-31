@@ -25,8 +25,7 @@ import os
 
 from string import Template
 
-from . import languages
-from templates import FileTemplate
+from . import languages, FileTemplate
 
 PREFIX = 'package'
 
@@ -269,6 +268,17 @@ minor=1
 release=1
 beta=true
 '''
+
+def is_dir():
+    """
+    Checks if the current dir is a package directory, i.e., a directory to
+    hold several applications (or libraries).
+
+    :return Returns a boolean pointing if is a package directory or not.
+    """
+    return os.access(os.getcwd() + '/package', os.F_OK)
+
+
 
 class Package(object):
     def __init__(self, args, project_vars):

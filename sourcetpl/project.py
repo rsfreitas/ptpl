@@ -24,8 +24,7 @@ Project template creation.
 import time
 import collections
 
-from . import package, languages
-from .templates import *
+from . import package, languages, CTemplate, base
 
 def supported_projects():
     """
@@ -105,7 +104,9 @@ class Template(object):
             'PROJECT_NAME': self._args.prefix + \
                     self._args.project_name.replace('-', '_'),
             'PROJECT_NAME_UPPER': self._args.prefix.upper() + \
-                    self._args.project_name.upper().replace('-', '_')
+                    self._args.project_name.upper().replace('-', '_'),
+            'PROJECT_BIN_NAME': self._args.prefix + \
+                    self._args.project_name.replace('_', '-')
         }
 
         # Disable package flag if we're creating a single file

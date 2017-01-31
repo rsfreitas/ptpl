@@ -25,8 +25,7 @@ import os
 
 from string import Template
 
-from . import base
-from . import FileTemplate
+from . import base, FileTemplate, package
 
 HEADER_EXTENSION = '.h'
 SOURCE_EXTENSION = '.c'
@@ -37,7 +36,7 @@ COMMENT = '''
  *
  * Author: $FULL_AUTHOR_NAME
  * Created at: $DATE
- * Project: $PROJECT_NAME
+ * Project: $PROJECT_BIN_NAME
  *
  * Copyright (c) $YEAR All rights reserved
  */
@@ -57,7 +56,7 @@ else
 endif
 
 OUTPUTDIR = ../bin/$(ARCH_DIR)
-TARGET = $(OUTPUTDIR)/$PROJECT_NAME
+TARGET = $(OUTPUTDIR)/$PROJECT_BIN_NAME
 
 INCLUDEDIR = -I../include
 
@@ -95,7 +94,7 @@ else
 endif
 
 OUTPUTDIR = ../bin/$(ARCH_DIR)
-TARGET = $(OUTPUTDIR)/$PROJECT_NAME
+TARGET = $(OUTPUTDIR)/$PROJECT_BIN_NAME
 
 INCLUDEDIR = -I../include
 
@@ -125,10 +124,10 @@ PACKAGE_VERSION=../../$(PACKAGE_VERSION_NAME).h
 package_version: $(PACKAGE_VERSION)
 $(PACKAGE_VERSION):
 	$(shell (cd ../../ && source-tpl -t header -n $(PACKAGE_VERSION_NAME) \\
-	    -c "^#define PACKAGE_MAJOR_VERSION	`cfget -C $(PACKAGE_CONF) version/major`\\
-	    ^#define PACKAGE_MINOR_VERSION	`cfget -C $(PACKAGE_CONF) version/minor` \\
-	    ^#define PACKAGE_RELEASE		`cfget -C $(PACKAGE_CONF) version/release` \\
-	    ^#define PACKAGE_BETA		`cfget -C $(PACKAGE_CONF) version/beta`^"))
+	    -c "^#define MAJOR_VERSION	`cfget -C $(PACKAGE_CONF) version/major`\\
+	    ^#define MINOR_VERSION	`cfget -C $(PACKAGE_CONF) version/minor` \\
+	    ^#define RELEASE		`cfget -C $(PACKAGE_CONF) version/release` \\
+	    ^#define BETA		`cfget -C $(PACKAGE_CONF) version/beta`^"))
 '''
 
 LIB_MAKEFILE = '''.PHONY: shared static clean dest_clean install outputdirs
@@ -195,6 +194,81 @@ $(OUTPUTDIR):
 
 '''
 
+LIB_MAKEFILE_PACKAGE = '''.PHONY: shared static clean dest_clean install outputdirs package_version
+
+CC = $COMPILER
+AR = ar
+
+ARCH_TEST := $(shell uname -m)
+
+ifeq ($(ARCH_TEST), x86_64)
+    ARCH = x86_64
+else
+    ARCH = i686
+endif
+
+MAJOR_VERSION = $(shell command grep MAJOR_VERSION ../../package_version.h | awk '{print $$$3}')
+MINOR_VERSION = $(shell command  grep MINOR_VERSION ../../package_version.h | awk '{print $$$3}')
+RELEASE = $(shell command grep RELEASE ../../package_version.h | awk '{print $$$3}')
+
+USR_DIR = /usr/local/lib
+PREFIX = ${PROJECT_NAME}
+LIBNAME = $(PREFIX).so
+SONAME = $(LIBNAME)
+SHARED_LIBNAME = $(LIBNAME).$(MAJOR_VERSION).$(MINOR_VERSION).$(RELEASE)
+STATIC_LIBNAME = $(PREFIX).a
+
+OUTPUTDIR = ../bin/$(ARCH)
+TARGET_SHARED = $(OUTPUTDIR)/$(SHARED_LIBNAME)
+TARGET_STATIC = $(OUTPUTDIR)/$(STATIC_LIBNAME)
+
+INCLUDEDIR = -I../include
+CFLAGS = -Wall -Wextra -fPIC -ggdb -O0 -g3 -fvisibility=hidden \\
+        -D${PROJECT_NAME_UPPER}_COMPILE -D_GNU_SOURCE $(INCLUDEDIR)
+
+LIBDIR =
+LIBS =
+
+VPATH = ../include:.
+
+C_FILES := $(wildcard *.c)
+OBJS = $(C_FILES:.c=.o)
+
+shared: outputdirs package_version $(OBJS)
+	$(CC) -shared -Wl,-soname,$(SONAME),--version-script,$(PREFIX).sym -o $(TARGET_SHARED) $(OBJS) $(LIBDIR) $(LIBS)
+
+static: outputdirs package_version $(OBJS)
+	$(AR) -sr $(TARGET_STATIC) $(OBJS)
+
+clean:
+	rm -rf $(OBJS) $(TARGET_SHARED) $(TARGET_STATIC) *~ ../include/*~
+
+dest_clean:
+	rm -f $(USR_DIR)/$(LIBNAME)*
+
+install:
+	cp -f $(TARGET_SHARED) $(USR_DIR)
+	rm -rf $(USR_DIR)/$(LIBNAME) $(USR_DIR)/$(SONAME)
+	ln -s $(USR_DIR)/$(SHARED_LIBNAME) $(USR_DIR)/$(LIBNAME)
+	ln -s $(USR_DIR)/$(SHARED_LIBNAME) $(USR_DIR)/$(SONAME)
+
+outputdirs: $(OUTPUTDIR)
+$(OUTPUTDIR):
+	mkdir -p $(OUTPUTDIR)
+
+PACKAGE_CONF=package/package.conf
+PACKAGE_VERSION_NAME=package_version
+PACKAGE_VERSION=../../$(PACKAGE_VERSION_NAME).h
+package_version: $(PACKAGE_VERSION)
+$(PACKAGE_VERSION):
+	$(shell (cd ../../ && source-tpl -t header -n $(PACKAGE_VERSION_NAME) \\
+	    -c "^#define MAJOR_VERSION	`cfget -C $(PACKAGE_CONF) version/major`\\
+	    ^#define MINOR_VERSION	`cfget -C $(PACKAGE_CONF) version/minor` \\
+	    ^#define RELEASE		`cfget -C $(PACKAGE_CONF) version/release` \\
+	    ^#define BETA		`cfget -C $(PACKAGE_CONF) version/beta`^"))
+
+'''
+
 LIBSYM = '''${PROJECT_NAME_UPPER}_0.1 {
     global:
         *;
@@ -252,6 +326,9 @@ class CTemplate(base.BaseTemplate):
 
         if self._args.package is False:
             content = Template(LIB_HEADER).safe_substitute(self._project_vars)
+        else:
+            content = Template(PACKAGE_DEF_HEADER)\
+                            .safe_substitute(self._project_vars)
 
         return content
 
@@ -264,7 +341,7 @@ class CTemplate(base.BaseTemplate):
         content = ''
 
         if '_def' in filename:
-            if self._args.package is True:
+            if self._args.package is True or package.is_dir():
                 content = \
                     Template(PACKAGE_DEF_HEADER)\
                         .safe_substitute(self._project_vars)
@@ -288,7 +365,7 @@ class CTemplate(base.BaseTemplate):
         a content is needed to be inserted together.
         """
         content = ''
-        upper_filename = filename.replace('.', '_').upper()
+        upper_filename = filename.replace('.', '_').replace('-', '_').upper()
 
         # Do we have any content to add into the file?
         get_header = {
@@ -330,7 +407,7 @@ class CTemplate(base.BaseTemplate):
         if self._args.package is True:
             mcontent = {
                 base.PTYPE_APPLICATION: APP_MAKEFILE_PACKAGE,
-                base.PTYPE_LIBRARY: LIB_MAKEFILE
+                base.PTYPE_LIBRARY: LIB_MAKEFILE_PACKAGE
             }.get(self._args.project_type)
         else:
             mcontent = {

@@ -27,7 +27,7 @@ import textwrap
 
 from sourcetpl import log, utils, project, languages
 
-VERSION = '0.1.1'
+VERSION = '0.1'
 
 def parse_arguments():
     """
@@ -62,7 +62,7 @@ Supported programming languages:
 
     parser.add_argument('-v', '--version', action='version',
                         help='Shows the utility latest version.',
-                        version=VERSION)
+                        version='%(prog)s ' + VERSION)
 
     parser.add_argument('-t', '--type', required=True,
                         help='Indicates the project\'s type.',

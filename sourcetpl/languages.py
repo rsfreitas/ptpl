@@ -17,9 +17,10 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 
-__all__ = [
-    'base',
-    'CTemplate',
-    'FileTemplate'
-]
+"""
+Supported languages for the templates.
+"""
+
+# Supported programming languages
+C_LANGUAGE = 'C'
 

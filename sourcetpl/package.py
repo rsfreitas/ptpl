@@ -25,8 +25,7 @@ import os
 
 from string import Template
 
-from . import languages
-from templates import FileTemplate
+from . import languages, FileTemplate
 
 PREFIX = 'package'
 
@@ -42,7 +41,7 @@ BUILD_PACKAGE = '''#!/bin/bash
 # Copyright (c) $YEAR All rights reserved
 #
 
-package_conf="../../package.conf"
+package_conf="../package.conf"
 package_tmp_dir=tmpbuild
 arch=i686
 
@@ -270,6 +269,17 @@ release=1
 beta=true
 '''
 
+def is_dir():
+    """
+    Checks if the current dir is a package directory, i.e., a directory to
+    hold several applications (or libraries).
+
+    :return Returns a boolean pointing if is a package directory or not.
+    """
+    return os.access(os.getcwd() + '/package', os.F_OK)
+
+
+
 class Package(object):
     def __init__(self, args, project_vars):
         self._args = args
@@ -357,12 +367,9 @@ class Package(object):
     def _create_files(self):
         for filename in self._files.filenames():
             file_data = self._files.properties(filename)
-            path = file_data.get('path')
 
-            if len(path):
-                pathname = self._root_dir + '/package/' + path + '/' + filename
-            else:
-                pathname = self._root_dir + '/' + filename
+            pathname = self._root_dir + '/package/' + file_data.get('path') \
+                    + '/' + filename
 
             with open(pathname, 'w') as out_fd:
                 out_fd.write(file_data.get('data'))

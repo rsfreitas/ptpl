@@ -22,70 +22,10 @@ Project template creation.
 """
 
 import time
-import collections
 import os
 import glob
 
-from . import package, languages, CTemplate, base
-
-def supported_projects():
-    """
-    Gets all supported project formats.
-
-    :return Returns a dictionary with all supported project as keys and a brief
-            description of each one.
-    """
-    return {
-        base.PTYPE_SOURCE : 'Indicates the creation of a single source file.',
-        base.PTYPE_HEADER : 'Indicates the creation of a single header file.',
-        base.PTYPE_APPLICATION :
-            '''Indicates the creation of a directory with the following
-            \t\tstructure: $name/{include,src}, containing template files for
-            \t\ta single application (with a main function).''',
-
-        base.PTYPE_LIBRARY:
-            '''Indicates the creation of a directory to hold a library
-            \t\tdevelopment project, with a specific Makefile.''',
-
-        base.PTYPE_LIBCOLLECTION_APP :
-            '''Indicates the creation of an application using
-            \t\tlibcollections as its base.''',
-
-        base.PTYPE_LIBCOLLECTION_C_PLUGIN :
-            '''Indicates the creation of a libcollections' plugin (C)''',
-
-        base.PTYPE_LIBCOLLECTION_PY_PLUGIN :
-            '''Indicates the creation of a libcollections' plugin (Python)''',
-
-        base.PTYPE_LIBCOLLECTION_JAVA_PLUGIN :
-            '''Indicates the creation of a libcollections' plugin (Java)'''
-    }
-
-
-
-def supported_projects_description():
-    """
-    Returns a string containing a formatted output of all supported projects.
-    """
-    data = collections.OrderedDict(sorted(supported_projects().items()))
-    description = ''
-
-    for key, value in data.iteritems():
-        description += '%-25s - %s\n' % (key, value)
-
-    return description
-
-
-
-def supported_languages():
-    """
-    Gets all supported languages.
-
-    :return Returns a list of all supported languages.
-    """
-    return [languages.C_LANGUAGE]
-
-
+from . import package, CTemplate, utils, git
 
 def _is_project_dir():
     """
@@ -129,23 +69,34 @@ class Template(object):
                     self._args.project_name.replace('_', '-')
         }
 
-        # Disable package flag if we're creating a single file and get the
+        # Disable package flag if we're creating a single file and set the
         # project name to use in the template.
-        if self._args.project_type in (base.PTYPE_SOURCE, base.PTYPE_HEADER):
+        if self._args.project_type in (utils.PTYPE_SOURCE, utils.PTYPE_HEADER):
             self._args.package = False
             single_project_name = _is_project_dir()
 
-            if single_project_name:
-                self._common_vars['SINGLE_FILE_PROJECT_NAME'] = \
-                        single_project_name
+            if single_project_name is None:
+                single_project_name = self._args.project_name
+
+            self._common_vars['PROJECT_BIN_NAME'] = single_project_name
+
+        # What will be our project root directory?
+        project_dirname = self._args.prefix + \
+                self._args.project_name.replace('_', '-')
 
         if self._args.package is True:
             self._package = package.Package(args, self._common_vars)
-            self._args.root_dir = self._package.current_dir()
+            root_dir = self._package.current_dir() + '/' + project_dirname
+        else:
+            root_dir = project_dirname
+
+        # Is this a git repository?
+        if self._args.git is True:
+            self._git = git.Git(root_dir, self._args, self._common_vars)
 
         self._template = {
-            languages.C_LANGUAGE: CTemplate.CTemplate(self._args,
-                                                      self._common_vars)
+            utils.C_LANGUAGE: CTemplate.CTemplate(root_dir, self._args,
+                                                  self._common_vars)
         }.get(self._args.language)
 
         # TODO: Download the code license
@@ -156,7 +107,7 @@ class Template(object):
         Gets the project prefix name according to the command line options.
         """
         return {
-            base.PTYPE_LIBRARY: 'lib'
+            utils.PTYPE_LIBRARY: 'lib'
         }.get(self._args.project_type, '')
 
 
@@ -167,6 +118,9 @@ class Template(object):
         """
         if self._args.package is True:
             self._package.create()
+
+        if self._args.git is True:
+            self._git.create()
 
         self._template.create()
 

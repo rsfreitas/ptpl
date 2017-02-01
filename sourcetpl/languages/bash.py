@@ -18,31 +18,24 @@
 #
 
 """
-Template base abstract class that every language should inherit.
+Specific data for bash language.
 """
 
-from abc import ABCMeta, abstractmethod
+HEAD = '''#!/bin/bash
 
-class BaseTemplate(object):
-    """
-    Abstract class for all supported languages
-    """
-    __metaclass__ = ABCMeta
+#
+# Description:
+#
+# Author: $FULL_AUTHOR_NAME
+# Created at: $DATE
+# Project: $PROJECT_BIN_NAME
+#
+# Copyright (c) $YEAR All rights reserved
+#
 
-    @abstractmethod
-    def create(self):
-        """
-        Method to create the required project.
-        """
-        pass
+'''
 
-
-    @abstractmethod
-    def info(self):
-        """
-        Method to show all info of the project in a user friendly format.
-        """
-        pass
-
-
+TAIL = '''
+exit 0
+'''
 

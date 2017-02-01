@@ -25,7 +25,7 @@ import sys
 import argparse
 import textwrap
 
-from sourcetpl import log, utils, project, languages
+from sourcetpl import log, utils, project
 
 VERSION = '0.1'
 
@@ -51,7 +51,7 @@ Supported programming languages:
     C
     Python (future)
     Rust (future)
-''' % project.supported_projects_description()
+''' % utils.supported_projects_description()
 
     parser = argparse.ArgumentParser(
         prog=progname, usage=usage,
@@ -74,7 +74,7 @@ Supported programming languages:
 
     parser.add_argument('-L', '--language',
                         help='Indicates the project\'s programming language.',
-                        dest='language', default=languages.C_LANGUAGE)
+                        dest='language', default=utils.C_LANGUAGE)
 
     parser.add_argument('-A', '--author',
                         help='Indicates the project\'s author name.',
@@ -111,9 +111,13 @@ Supported programming languages:
                         help='The content of a single source/header file.',
                         dest='content', default=None)
 
+    parser.add_argument('-g', '--git',
+                        help='Indicates that the project will be a git repository.',
+                        dest='git', default=False, action='store_true')
+
     args = parser.parse_args()
-    projects = project.supported_projects().keys()
-    supported_languages = project.supported_languages()
+    projects = utils.supported_projects().keys()
+    supported_languages = utils.supported_languages()
     args.sources = utils.multiple_split(args.sources)
     args.headers = utils.multiple_split(args.headers)
 

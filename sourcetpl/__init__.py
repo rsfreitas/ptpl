@@ -19,11 +19,12 @@
 
 __all__ = [
     'base',
-    'languages',
+    'FileTemplate',
+    'git',
+    'license',
     'log',
     'package',
     'project',
-    'utils',
-    'FileTemplate'
+    'utils'
 ]
 

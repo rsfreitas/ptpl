@@ -18,9 +18,12 @@
 #
 
 """
-Supported languages for the templates.
+Package to handle all languages specific file contents.
 """
 
-# Supported programming languages
-C_LANGUAGE = 'C'
+__all__ = [
+    'bash',
+    'C',
+    'python'
+]
 

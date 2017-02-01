@@ -43,6 +43,19 @@ COMMENT = '''
 
 '''
 
+COMMENT_SINGLE = '''
+/*
+ * Description:
+ *
+ * Author: $FULL_AUTHOR_NAME
+ * Created at: $DATE
+ * Project: $SINGLE_FILE_PROJECT_NAME
+ *
+ * Copyright (c) $YEAR All rights reserved
+ */
+
+'''
+
 APP_MAKEFILE = '''.PHONY: outputdirs
 
 CC = $COMPILER
@@ -352,7 +365,9 @@ class CTemplate(base.BaseTemplate):
             if self._args.content is not None:
                 content = Template(self._args.content.replace('^', '\n'))\
                                 .safe_substitute(self._project_vars)
-            elif self._args.project_name == filename:
+            elif self._args.project_name == filename and \
+                    self._args.project_type not in (base.PTYPE_SOURCE, \
+                                                    base.PTYPE_HEADER):
                 content = Template(MAIN_HEADER)\
                                 .safe_substitute(self._project_vars)
 
@@ -382,7 +397,8 @@ class CTemplate(base.BaseTemplate):
 ''' % (upper_filename, upper_filename, content)
 
 
-    def _add_file(self, filename, path='src', extension=SOURCE_EXTENSION):
+    def _add_file(self, filename, path='src', extension=SOURCE_EXTENSION,
+                  comment=True):
         """
         Adds a file into the internal FileTemplate object. Here we also
         """
@@ -397,7 +413,7 @@ class CTemplate(base.BaseTemplate):
 
         self._files.add(filename, path, content)
         self._files.set_property(filename, 'extension', extension)
-        self._files.set_property(filename, 'comment', True)
+        self._files.set_property(filename, 'comment', comment)
 
 
     def _add_makefile(self):
@@ -432,7 +448,7 @@ class CTemplate(base.BaseTemplate):
                 base.PTYPE_HEADER: HEADER_EXTENSION
             }.get(self._args.project_type)
 
-            self._add_file(self._args.project_name, '', extension)
+            self._add_file(self._args.project_name, '', extension, False)
             return
         else:
             self._add_makefile()
@@ -465,11 +481,16 @@ class CTemplate(base.BaseTemplate):
 
 
     def _create_single_file(self, filename, root_dir):
+        """
+        Creates the file with name @filename. Every one will have a comment
+        block in the beginning.
+        """
         file_data = self._files.properties(filename)
         extension = file_data.get('extension', '')
         path = file_data.get('path')
         content = file_data.get('data')
         comment = file_data.get('comment', False)
+        comment_cnt = None
 
         if extension not in filename:
             filename += extension
@@ -479,11 +500,16 @@ class CTemplate(base.BaseTemplate):
         else:
             pathname = filename
 
+        # If we don't have a comment as True previously adjusted we assume that
+        # is a single file creation and we use other comment block.
         if comment is True:
             comment_cnt = Template(COMMENT).safe_substitute(self._project_vars)
+        else:
+            comment_cnt = Template(COMMENT_SINGLE)\
+                            .safe_substitute(self._project_vars)
 
         with open(pathname, 'w') as out_fd:
-            if comment is True:
+            if comment_cnt:
                 out_fd.write(comment_cnt)
 
             if content is not None:

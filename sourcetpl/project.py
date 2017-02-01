@@ -23,6 +23,8 @@ Project template creation.
 
 import time
 import collections
+import os
+import glob
 
 from . import package, languages, CTemplate, base
 
@@ -85,6 +87,24 @@ def supported_languages():
 
 
 
+def _is_project_dir():
+    """
+    Checks if the current directory belongs to a project (an application or
+    a library).
+
+    :return Returns the project name if the directory is from a project or
+            None otherwise.
+    """
+    pwd = os.getcwd()
+
+    for path in ['/../include/*.h', '/*.c']:
+        if len(glob.glob(pwd + path)):
+            return os.path.basename(os.path.dirname(pwd))
+
+    return None
+
+
+
 class Template(object):
     """
     Class to create the project, using all options from the user.
@@ -109,9 +129,15 @@ class Template(object):
                     self._args.project_name.replace('_', '-')
         }
 
-        # Disable package flag if we're creating a single file
+        # Disable package flag if we're creating a single file and get the
+        # project name to use in the template.
         if self._args.project_type in (base.PTYPE_SOURCE, base.PTYPE_HEADER):
             self._args.package = False
+            single_project_name = _is_project_dir()
+
+            if single_project_name:
+                self._common_vars['SINGLE_FILE_PROJECT_NAME'] = \
+                        single_project_name
 
         if self._args.package is True:
             self._package = package.Package(args, self._common_vars)

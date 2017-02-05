@@ -25,7 +25,7 @@ import os
 
 from string import Template
 
-from . import base, FileTemplate, package, utils, log
+from . import base, FileTemplate, package, utils, log, license
 from .languages import C
 
 class CTemplate(base.BaseTemplate):
@@ -110,8 +110,16 @@ class CTemplate(base.BaseTemplate):
         """
         Adds a file into the internal FileTemplate object.
         """
-        c_head = Template(C.HEAD).safe_substitute(self._project_vars)
         content = None
+
+        if self._args.license is None:
+            c_head = Template(C.HEAD).safe_substitute(self._project_vars)
+        else:
+            c_head = Template(C.HEAD_LICENSE)\
+                        .safe_substitute(self._project_vars) %\
+                        license.license_block(self._args.license,
+                                              self._project_vars,
+                                              comment_char=' *')
 
         if extension == C.HEADER_EXTENSION:
             content = self._get_header_content(filename)

@@ -37,6 +37,19 @@ HEAD = '''
 
 '''
 
+HEAD_LICENSE = '''
+/*
+ * Description:
+ *
+ * Author: $FULL_AUTHOR_NAME
+ * Created at: $DATE
+ * Project: $PROJECT_BIN_NAME
+ *
+%s
+ */
+
+'''
+
 GITIGNORE = '''# Object files
 *.o
 *.ko

@@ -21,23 +21,22 @@
 Functions to handle code license.
 """
 
-GPL3_BLOCK = '''
-Copyright (C) ${YEAR} ${FULL_AUTHOR_NAME}
+from string import Template
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-'''
+GPL3_BLOCK = '''${COMMENT_CHAR} Copyright (C) ${YEAR} ${FULL_AUTHOR_NAME}
+${COMMENT_CHAR}
+${COMMENT_CHAR} This program is free software: you can redistribute it and/or modify
+${COMMENT_CHAR} it under the terms of the GNU General Public License as published by
+${COMMENT_CHAR} the Free Software Foundation, either version 3 of the License, or
+${COMMENT_CHAR} (at your option) any later version.
+${COMMENT_CHAR}
+${COMMENT_CHAR} This program is distributed in the hope that it will be useful,
+${COMMENT_CHAR} but WITHOUT ANY WARRANTY; without even the implied warranty of
+${COMMENT_CHAR} MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+${COMMENT_CHAR} GNU General Public License for more details.
+${COMMENT_CHAR}
+${COMMENT_CHAR} You should have received a copy of the GNU General Public License
+${COMMENT_CHAR} along with this program.  If not, see <http://www.gnu.org/licenses/>.'''
 
 GPL3 = '''
                     GNU GENERAL PUBLIC LICENSE
@@ -717,24 +716,21 @@ Public License instead of this License.  But first, please read
 
 '''
 
-GPL2_BLOCK = '''
-Copyright (C) ${YEAR} ${FULL_AUTHOR_NAME}
-
-This program is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License along
-with this program; if not, write to the Free Software Foundation, Inc.,
-51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-
-'''
+GPL2_BLOCK = '''${COMMENT_CHAR} Copyright (C) ${YEAR} ${FULL_AUTHOR_NAME}
+${COMMENT_CHAR}
+${COMMENT_CHAR} This program is free software; you can redistribute it and/or modify
+${COMMENT_CHAR} it under the terms of the GNU General Public License as published by
+${COMMENT_CHAR} the Free Software Foundation; either version 2 of the License, or
+${COMMENT_CHAR} (at your option) any later version.
+${COMMENT_CHAR}
+${COMMENT_CHAR} This program is distributed in the hope that it will be useful,
+${COMMENT_CHAR} but WITHOUT ANY WARRANTY; without even the implied warranty of
+${COMMENT_CHAR} MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+${COMMENT_CHAR} GNU General Public License for more details.
+${COMMENT_CHAR}
+${COMMENT_CHAR} You should have received a copy of the GNU General Public License along
+${COMMENT_CHAR} with this program; if not, write to the Free Software Foundation, Inc.,
+${COMMENT_CHAR} 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.'''
 
 GPL2 = '''
                     GNU GENERAL PUBLIC LICENSE
@@ -1079,24 +1075,22 @@ Public License instead of this License.
 
 '''
 
-LGPL21_BLOCK = '''
-Copyright (C) ${YEAR} ${FULL_AUTHOR_NAME}
-
-This library is free software; you can redistribute it and/or
-modify it under the terms of the GNU Lesser General Public
-License as published by the Free Software Foundation; either
-version 2.1 of the License, or (at your option) any later version.
-
-This library is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-Lesser General Public License for more details.
-
-You should have received a copy of the GNU Lesser General Public
-License along with this library; if not, write to the Free Software
-Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
-
-'''
+LGPL21_BLOCK = '''${COMMENT_CHAR} Copyright (C) ${YEAR} ${FULL_AUTHOR_NAME}
+${COMMENT_CHAR}
+${COMMENT_CHAR} This library is free software; you can redistribute it and/or
+${COMMENT_CHAR} modify it under the terms of the GNU Lesser General Public
+${COMMENT_CHAR} License as published by the Free Software Foundation; either
+${COMMENT_CHAR} version 2.1 of the License, or (at your option) any later version.
+${COMMENT_CHAR}
+${COMMENT_CHAR} This library is distributed in the hope that it will be useful,
+${COMMENT_CHAR} but WITHOUT ANY WARRANTY; without even the implied warranty of
+${COMMENT_CHAR} MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+${COMMENT_CHAR} Lesser General Public License for more details.
+${COMMENT_CHAR}
+${COMMENT_CHAR} You should have received a copy of the GNU Lesser General Public
+${COMMENT_CHAR} License along with this library; if not, write to the Free Software
+${COMMENT_CHAR} Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
+${COMMENT_CHAR} USA'''
 
 LGPL21 = '''
                   GNU LESSER GENERAL PUBLIC LICENSE
@@ -1620,15 +1614,23 @@ def license(license_type):
 
 
 
-def license_block(license_type):
+def license_block(license_type, string_vars, comment_char=None):
     """
     Returns the license block to add in files according the @license_type.
     """
-    return {
+    block= {
         LICENSE_GPL3: GPL3_BLOCK,
         LICENSE_GPL2: GPL2_BLOCK,
         LICENSE_LGPL21: LGPL21_BLOCK
     }.get(license_type, None)
+
+    if block is None:
+        return None
+
+    if comment_char is not None:
+        string_vars['COMMENT_CHAR'] = comment_char
+
+    return Template(block).safe_substitute(string_vars)
 
 
 

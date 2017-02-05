@@ -35,6 +35,20 @@ HEAD = '''#!/bin/bash
 
 '''
 
+HEAD_LICENSE = '''#!/bin/bash
+
+#
+# Description:
+#
+# Author: $FULL_AUTHOR_NAME
+# Created at: $DATE
+# Project: $PROJECT_BIN_NAME
+#
+%s
+#
+
+'''
+
 TAIL = '''
 exit 0
 '''

@@ -52,10 +52,9 @@ class Template(object):
     :param args: All arguments received from command line.
     """
     def __init__(self, args):
+        root_dir = ''
         self._args = args
         self._args.prefix = self._project_prefix()
-        self._args.root_dir = ''
-
         self._common_vars = {
             'DATE': time.strftime('%c'),
             'YEAR': time.strftime('%Y'),
@@ -88,7 +87,9 @@ class Template(object):
             self._package = package.Package(args, self._common_vars)
             root_dir = self._package.current_dir() + '/' + project_dirname
         else:
-            root_dir = project_dirname
+            if self._args.project_type not in (utils.PTYPE_SOURCE, \
+                    utils.PTYPE_HEADER):
+                root_dir = project_dirname
 
         # Is this a git repository?
         if self._args.git is True:
@@ -98,8 +99,6 @@ class Template(object):
             utils.C_LANGUAGE: CTemplate.CTemplate(root_dir, self._args,
                                                   self._common_vars)
         }.get(self._args.language)
-
-        # TODO: Download the code license
 
 
     def _project_prefix(self):

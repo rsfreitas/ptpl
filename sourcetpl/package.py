@@ -25,7 +25,7 @@ import os
 
 from string import Template
 
-from . import FileTemplate, utils
+from . import FileTemplate, utils, license
 from .languages import bash
 
 PREFIX = 'package'
@@ -286,7 +286,15 @@ class Package(object):
                 Template(BUILD_PACKAGE).safe_substitute(self._project_vars)
         }.get(self._args.language)
 
-        bash_head = Template(bash.HEAD).safe_substitute(self._project_vars)
+        if self._args.license is None:
+            bash_head = Template(bash.HEAD).safe_substitute(self._project_vars)
+        else:
+            bash_head = Template(bash.HEAD_LICENSE)\
+                    .safe_substitute(self._project_vars) %\
+                    license.license_block(self._args.license,
+                                          self._project_vars,
+                                          comment_char='#')
+
         bash_tail = Template(bash.TAIL).safe_substitute(self._project_vars)
 
         files = [

@@ -35,6 +35,20 @@ HEAD = '''#!/usr/bin/python
 
 '''
 
+HEAD_LICENSE = '''#!/usr/bin/python
+
+#
+# Description:
+#
+# Author: $FULL_AUTHOR_NAME
+# Created at: $DATE
+# Project: $PROJECT_BIN_NAME
+#
+%s
+#
+
+'''
+
 GITIGNORE = '''# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

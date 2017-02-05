@@ -76,12 +76,15 @@ class FileTemplateInfo(object):
 
             filename += extension
 
-        subdir = properties.get('path')
-        full_path = self._root_pathname + '/' + subdir
-        full_filename = full_path + '/' + filename
+        if len(self._root_pathname):
+            subdir = properties.get('path')
+            full_path = self._root_pathname + '/' + subdir
+            full_filename = full_path + '/' + filename
 
-        if not os.access(full_path, os.F_OK):
-            os.makedirs(full_path)
+            if not os.access(full_path, os.F_OK):
+                os.makedirs(full_path)
+        else:
+            full_filename = filename
 
         with open(full_filename, 'w') as fd:
             try:

@@ -24,7 +24,7 @@ Functions to handle git files to include in a project.
 import os
 from string import Template
 
-from . import utils, FileTemplate
+from . import utils, FileTemplate, license
 from .languages import C, python
 
 README = '''# ${PROJECT_NAME}
@@ -62,7 +62,15 @@ class Git(object):
         self._files.add('README.md', '',
                         body=Template(README)\
                                 .safe_substitute(self._project_vars))
-        # LICENSE (TODO)
+
+        # LICENSE
+        if self._args.license is not None:
+            license_cnt = license.license(self._args.license)
+
+            if license_cnt is not None:
+                self._files.add('LICENSE', '',
+                                body=Template(license_cnt)\
+                                    .safe_substitute(self._project_vars))
 
 
     def create(self):

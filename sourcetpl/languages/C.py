@@ -90,12 +90,18 @@ APP_MAKEFILE = '''.PHONY: outputdirs
 
 CC = $COMPILER
 
+gccversion = 4
 machine = $(shell uname -m)
+GCCVERSION_TEST := $(shell expr `gcc -dumpversion | cut -f1 -d.` >/ 4)
 
 ifeq ($(machine), x86_64)
     ARCH_DIR = x86_64
 else
     ARCH_DIR = i686
+endif
+
+ifeq ($(GCCVERSION_TEST), 1)
+    gccversion = 5
 endif
 
 OUTPUTDIR = ../bin/$(ARCH_DIR)
@@ -104,6 +110,10 @@ TARGET = $(OUTPUTDIR)/$PROJECT_BIN_NAME
 INCLUDEDIR = -I../include
 
 CFLAGS = -Wall -Wextra -O0 -ggdb $(INCLUDEDIR)
+
+if ($(gccversion), 5)
+    CFLAGS += -fgnu89-inline
+endif
 
 LIBDIR = -L/usr/local/lib
 LIBS =
@@ -128,12 +138,18 @@ APP_MAKEFILE_PACKAGE = '''.PHONY: outputdirs package_version
 
 CC = $COMPILER
 
+gccversion = 4
 machine = $(shell uname -m)
+GCCVERSION_TEST := $(shell expr `gcc -dumpversion | cut -f1 -d.` >/ 4)
 
 ifeq ($(machine), x86_64)
     ARCH_DIR = x86_64
 else
     ARCH_DIR = i686
+endif
+
+ifeq ($(GCCVERSION_TEST), 1)
+    gccversion = 5
 endif
 
 OUTPUTDIR = ../bin/$(ARCH_DIR)
@@ -142,6 +158,10 @@ TARGET = $(OUTPUTDIR)/$PROJECT_BIN_NAME
 INCLUDEDIR = -I../include
 
 CFLAGS = -Wall -Wextra -O0 -ggdb $(INCLUDEDIR)
+
+if ($(gccversion), 5)
+    CFLAGS += -fgnu89-inline
+endif
 
 LIBDIR = -L/usr/local/lib
 LIBS =
@@ -178,12 +198,18 @@ LIB_MAKEFILE = '''.PHONY: shared static clean dest_clean install outputdirs
 CC = $COMPILER
 AR = ar
 
+gccversion = 4
 ARCH_TEST := $(shell uname -m)
+GCCVERSION_TEST := $(shell expr `gcc -dumpversion | cut -f1 -d.` >/ 4)
 
 ifeq ($(ARCH_TEST), x86_64)
     ARCH = x86_64
 else
     ARCH = i686
+endif
+
+ifeq ($(GCCVERSION_TEST), 1)
+    gccversion = 5
 endif
 
 MAJOR_VERSION := $(shell command grep MAJOR_VERSION ../include/${PROJECT_NAME}.h | awk '{print $$$4}')
@@ -202,8 +228,12 @@ TARGET_SHARED := $(OUTPUTDIR)/$(SHARED_LIBNAME)
 TARGET_STATIC := $(OUTPUTDIR)/$(STATIC_LIBNAME)
 
 INCLUDEDIR = -I../include
-CFLAGS = -Wall -Wextra -fPIC -ggdb -O0 -g3 -fvisibility=hidden \\
+CFLAGS = -Wall -Wextra -fPIC -ggdb -O0 -g3 \\
         -D${PROJECT_NAME_UPPER}_COMPILE -D_GNU_SOURCE $(INCLUDEDIR)
+
+if ($(gccversion), 5)
+    CFLAGS += -fgnu89-inline
+endif
 
 LIBDIR =
 LIBS =
@@ -242,12 +272,18 @@ LIB_MAKEFILE_PACKAGE = '''.PHONY: shared static clean dest_clean install outputd
 CC = $COMPILER
 AR = ar
 
+gccversion = 4
 ARCH_TEST := $(shell uname -m)
+GCCVERSION_TEST := $(shell expr `gcc -dumpversion | cut -f1 -d.` >/ 4)
 
 ifeq ($(ARCH_TEST), x86_64)
     ARCH = x86_64
 else
     ARCH = i686
+endif
+
+ifeq ($(GCCVERSION_TEST), 1)
+    gccversion = 5
 endif
 
 MAJOR_VERSION = $(shell command grep MAJOR_VERSION ../../package_version.h | awk '{print $$$3}')
@@ -266,8 +302,12 @@ TARGET_SHARED = $(OUTPUTDIR)/$(SHARED_LIBNAME)
 TARGET_STATIC = $(OUTPUTDIR)/$(STATIC_LIBNAME)
 
 INCLUDEDIR = -I../include
-CFLAGS = -Wall -Wextra -fPIC -ggdb -O0 -g3 -fvisibility=hidden \\
+CFLAGS = -Wall -Wextra -fPIC -ggdb -O0 -g3 \\
         -D${PROJECT_NAME_UPPER}_COMPILE -D_GNU_SOURCE $(INCLUDEDIR)
+
+if ($(gccversion), 5)
+    CFLAGS += -fgnu89-inline
+endif
 
 LIBDIR =
 LIBS =
@@ -349,5 +389,4 @@ LIB_HEADER = '''
 # define RELEASE        1
 #endif
 '''
-
 

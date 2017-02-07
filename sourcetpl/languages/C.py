@@ -393,7 +393,7 @@ HEADER_TAIL = '''#endif
 
 MISC_LIBRARY_HEADER = '''#ifndef ${PROJECT_NAME_UPPER}_COMPILE
 # ifdef _${PROJECT_NAME_UPPER}_H
-#  error "Never use <${FILENAME}.h> directly; include <${PROJECT_NAME}.h> instead."
+#  error "Never use <${FILENAME}> directly; include <${PROJECT_NAME}.h> instead."
 # endif
 #endif
 

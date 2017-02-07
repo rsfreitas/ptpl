@@ -39,6 +39,13 @@ class FileTemplateInfo(object):
         self._root_pathname = root_pathname
 
 
+    def files(self):
+        """
+        Returns the templates stored inside.
+        """
+        return dict(self._templates)
+
+
     def add(self, filename, base_path, head=None, tail=None, body=None,
             source=False, header=False, executable=False):
         """
@@ -70,7 +77,7 @@ class FileTemplateInfo(object):
         """
         extension = properties.get('extension')
 
-        if extension:
+        if extension and '.' not in filename:
             if '.' not in extension:
                 filename += '.'
 

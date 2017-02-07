@@ -32,7 +32,7 @@ PREFIX = 'package'
 
 BUILD_PACKAGE = '''package_conf="../package.conf"
 package_tmp_dir=tmpbuild
-arch=i686
+arch=`uname -m`
 
 # Compile all internal applications
 compile_applications()
@@ -40,7 +40,7 @@ compile_applications()
     local modules=`cfget -C $package_conf package/modules`
 
     for app in ${modules[@]}; do
-        echo "(cd ../../$app/src && make clean && make)"
+        (cd ../../$app/src && make clean && make)
     done
 }
 
@@ -69,7 +69,7 @@ copy_necessary_files()
     cp -f ../misc/*_cron $package_tmp_dir/etc/cron.d/$dest_cron || \\
         echo "Error copying to file '$dest_cron'."
 
-    local dest_init=`basename ../misc/*_initd _initd`
+    local dest_init=`basename ../misc/*_initd _initd`.sh
     cp -f ../misc/*_initd $package_tmp_dir/etc/init.d/$dest_init || \\
         echo "Error copying to file '$dest_init'."
 
@@ -99,6 +99,10 @@ build_package()
     local depends=''
     local maintainer=''
     local description=''
+
+    if [ "$arch" = "x86_64" ]; then
+        arch="amd64"
+    fi
 
     # Create CONTROL file
     cat << CONTROL >> $package_tmp_dir/DEBIAN/control
@@ -153,6 +157,7 @@ done
 compile_applications
 copy_necessary_files
 build_package
+
 '''
 
 CLEAN_PACKAGE = '''package_dir=../../
@@ -164,17 +169,22 @@ for arq in $package_dir*/src; do
     echo "Cleaning source directory: $arq"
     (cd $arq && make clean)
 done
+
 '''
 
 CRON = '''SHELL=/bin/sh
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 
 */1 * * * *    root    /etc/init.d/$PROJECT_NAME.sh status || /etc/init.d/$PROJECT_NAME.sh start
+
 '''
 
 INITD = '''#!/bin/sh
 
 . /lib/lsb/init-functions
+
+ID=`id -u`
+RUN_PATH="/run/user/"$ID
 
 case "$1" in
     start)
@@ -198,12 +208,12 @@ case "$1" in
         ;;
 
     status)
-        if [ -s /var/run/$PROJECT_NAME.pid ]; then
-            if kill -0 `cat /var/run/$PROJECT_NAME.pid` 2>/dev/null; then
-                log_success_msg "$PROJECT_NAME esta sendo executado"
+        if [ -s $RUN_PATH/$PROJECT_NAME.pid ]; then
+            if kill -0 `cat $RUN_PATH/$PROJECT_NAME.pid` 2>/dev/null; then
+                log_success_msg "$PROJECT_NAME is not running"
                 exit 0
             else
-                log_failure_msg "/var/run/$PROJECT_NAME.pid exists but $PROJECT_NAME is not running"
+                log_failure_msg "$RUN_PATH/$PROJECT_NAME.pid exists but $PROJECT_NAME is not running"
                 exit 1
             fi
         else
@@ -230,6 +240,7 @@ case "$1" in
 esac
 
 exit 0
+
 '''
 
 PACKAGE_CONF = '''# Main package informations.

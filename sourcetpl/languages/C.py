@@ -92,7 +92,7 @@ CC = $COMPILER
 
 gccversion = 4
 machine = $(shell uname -m)
-GCCVERSION_TEST := $(shell expr `gcc -dumpversion | cut -f1 -d.` >/ 4)
+GCCVERSION_TEST := $(shell expr `gcc -dumpversion | cut -f1 -d.` \> 4)
 
 ifeq ($(machine), x86_64)
     ARCH_DIR = x86_64
@@ -111,7 +111,7 @@ INCLUDEDIR = -I../include
 
 CFLAGS = -Wall -Wextra -O0 -ggdb $(INCLUDEDIR)
 
-if ($(gccversion), 5)
+ifeq ($(gccversion), 5)
     CFLAGS += -fgnu89-inline
 endif
 
@@ -140,7 +140,7 @@ CC = $COMPILER
 
 gccversion = 4
 machine = $(shell uname -m)
-GCCVERSION_TEST := $(shell expr `gcc -dumpversion | cut -f1 -d.` >/ 4)
+GCCVERSION_TEST := $(shell expr `gcc -dumpversion | cut -f1 -d.` \> 4)
 
 ifeq ($(machine), x86_64)
     ARCH_DIR = x86_64
@@ -159,7 +159,7 @@ INCLUDEDIR = -I../include
 
 CFLAGS = -Wall -Wextra -O0 -ggdb $(INCLUDEDIR)
 
-if ($(gccversion), 5)
+ifeq ($(gccversion), 5)
     CFLAGS += -fgnu89-inline
 endif
 
@@ -200,7 +200,7 @@ AR = ar
 
 gccversion = 4
 ARCH_TEST := $(shell uname -m)
-GCCVERSION_TEST := $(shell expr `gcc -dumpversion | cut -f1 -d.` >/ 4)
+GCCVERSION_TEST := $(shell expr `gcc -dumpversion | cut -f1 -d.` \> 4)
 
 ifeq ($(ARCH_TEST), x86_64)
     ARCH = x86_64
@@ -231,7 +231,7 @@ INCLUDEDIR = -I../include
 CFLAGS = -Wall -Wextra -fPIC -ggdb -O0 -g3 \\
         -D${PROJECT_NAME_UPPER}_COMPILE -D_GNU_SOURCE $(INCLUDEDIR)
 
-if ($(gccversion), 5)
+ifeq ($(gccversion), 5)
     CFLAGS += -fgnu89-inline
 endif
 
@@ -274,7 +274,7 @@ AR = ar
 
 gccversion = 4
 ARCH_TEST := $(shell uname -m)
-GCCVERSION_TEST := $(shell expr `gcc -dumpversion | cut -f1 -d.` >/ 4)
+GCCVERSION_TEST := $(shell expr `gcc -dumpversion | cut -f1 -d.` \> 4)
 
 ifeq ($(ARCH_TEST), x86_64)
     ARCH = x86_64
@@ -305,7 +305,7 @@ INCLUDEDIR = -I../include
 CFLAGS = -Wall -Wextra -fPIC -ggdb -O0 -g3 \\
         -D${PROJECT_NAME_UPPER}_COMPILE -D_GNU_SOURCE $(INCLUDEDIR)
 
-if ($(gccversion), 5)
+ifeq ($(gccversion), 5)
     CFLAGS += -fgnu89-inline
 endif
 
@@ -360,33 +360,109 @@ LIBSYM = '''${PROJECT_NAME_UPPER}_0.1 {
 };
 '''
 
-DEF_HEADER = '''
-#define MAJOR_VERSION   0
+DEF_HEADER = '''#define MAJOR_VERSION   0
 #define MINOR_VERSION   1
 #define RELEASE         1
 #define BETA            true
+
 '''
 
-PACKAGE_DEF_HEADER = '''
-/*
+PACKAGE_DEF_HEADER = '''/*
  * Package version: major, minor and release.
  */
 #include "../../package_version.h"
 
 #define BUILD           0
+${HEADER_FILES}
 '''
 
-MAIN_HEADER = '''
-#include "${PROJECT_NAME}_def.h"
+MAIN_HEADER = '''#include "${PROJECT_NAME}_def.h"
 #include "${PROJECT_NAME}_struct.h"
 #include "${PROJECT_NAME}_prt.h"
+
 '''
 
-LIB_HEADER = '''
-#ifdef ${PROJECT_NAME_UPPER}_COMPILE
+HEADER_HEAD = '''#ifndef _${FILENAME_UPPER}
+#define _${FILENAME_UPPER}          1
+
+'''
+
+HEADER_TAIL = '''#endif
+
+'''
+
+MISC_LIBRARY_HEADER = '''#ifndef ${PROJECT_NAME_UPPER}_COMPILE
+# ifdef _${PROJECT_NAME_UPPER}_H
+#  error "Never use <${FILENAME}.h> directly; include <${PROJECT_NAME}.h> instead."
+# endif
+#endif
+
+'''
+
+MAIN_LIBRARY_HEADER = '''#ifdef ${PROJECT_NAME_UPPER}_COMPILE
 # define MAJOR_VERSION  0
 # define MINOR_VERSION  1
 # define RELEASE        1
 #endif
+${HEADER_FILES}
+'''
+
+LIB_ERROR_SOURCE = '''#include "${PROJECT_NAME}.h"
+
+static const char *__description[] = {
+    "Ok"
+};
+
+static const char *__unknown_error = "Unknown error";
+static int __errno;
+
+void errno_clear(void)
+{
+    __errno = ${LIB_PREFIX_UPPER}_NO_ERROR;
+}
+
+void errno_set(enum ${LIB_PREFIX}_error_code code)
+{
+    __errno = code;
+}
+
+enum ${LIB_PREFIX}_error_code ${LIB_PREFIX}_get_last_error(void)
+{
+    return __errno;
+}
+
+const char *${LIB_PREFIX}_strerror(enum ${LIB_PREFIX}_error_code code)
+{
+    if (code >= ${LIB_PREFIX_UPPER}_MAX_ERROR_CODE)
+        return __unknown_error;
+
+    return __description[code];
+}
+
+'''
+
+LIB_ERROR_HEADER = '''enum ${LIB_PREFIX}_error_code {
+    ${LIB_PREFIX_UPPER}_NO_ERROR,
+
+    ${LIB_PREFIX_UPPER}_MAX_ERROR_CODE
+};
+
+#ifdef ${PROJECT_NAME_UPPER}_COMPILE
+
+void errno_clear(void);
+void errno_set(enum ${LIB_PREFIX}_error_code code);
+
+#endif
+
+enum ${LIB_PREFIX}_error_code ${LIB_PREFIX}_get_last_error(void);
+const char *${LIB_PREFIX}_strerror(enum ${LIB_PREFIX}_error_code code);
+
+'''
+
+MAIN_SOURCE = '''int main(void)
+{
+    return 0;
+}
+
 '''
 

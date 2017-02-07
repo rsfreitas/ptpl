@@ -39,25 +39,31 @@ class CTemplate(base.BaseTemplate):
         self._prepare_project_files()
 
 
-    def _library_header(self, _filename):
+    def _library_header(self, filename):
         """
-        Decides which file content will be used for a library header.
+        Decides which file content will be used for a header file if we're
+        creating a library.
         """
-        content = ''
-
-        if self._args.package is False:
-            content = Template(C.LIB_HEADER).safe_substitute(self._project_vars)
-        else:
-            content = Template(C.PACKAGE_DEF_HEADER)\
+        if self._args.project_name in filename:
+            if self._args.package is True:
+                return Template(C.PACKAGE_DEF_HEADER)\
                             .safe_substitute(self._project_vars)
+            else:
+                body = C.MAIN_LIBRARY_HEADER
+        else:
+            body = C.MISC_LIBRARY_HEADER
 
-        return content
+        body += {
+            'error.h': C.LIB_ERROR_HEADER
+        }.get(filename, '')
+
+        return Template(body).safe_substitute(self._project_vars)
 
 
     def _application_header(self, filename):
         """
         Decides which file content will be used for an application header or a
-        single header file.
+        single header file if we're creating an application.
         """
         content = ''
 
@@ -82,35 +88,54 @@ class CTemplate(base.BaseTemplate):
         return content
 
 
+    def _header_files_to_include(self):
+        """
+        Creates a list of #include directives to be inserted into one of the
+        project header files.
+        """
+        include = ''
+
+        if self._args.package is True and \
+                self._args.project_type == utils.PTYPE_APPLICATION:
+            # Empty
+            return ''
+
+        for key, value in self._files.files().iteritems():
+            if value.get('header'):
+                include += '\n#include "%s"' % key
+
+        if len(include):
+            include += '\n'
+
+        return include
+
+
     def _get_header_content(self, filename):
         """
-        Returns a content to insert in header files. Internally, we check if
-        a content is needed to be inserted together.
+        Returns a content to insert in header files.
         """
-        content = ''
-        upper_filename = filename.replace('.', '_').replace('-', '_').upper()
+        self._project_vars['HEADER_FILES'] = self._header_files_to_include();
+        self._project_vars['FILENAME'] = utils.assemble_filename(filename, '.h')
+        self._project_vars['FILENAME_UPPER'] = \
+                utils.assemble_filename(filename, '.h').replace('.', '_')\
+                                .replace('-', '_').upper()
 
-        # Do we have any content to add into the file?
         get_header = {
             utils.PTYPE_LIBRARY: self._library_header,
         }.get(self._args.project_type, self._application_header)
 
-        content = get_header(filename)
-
-        return '''#ifndef _%s_H
-#define _%s_H     1
-%s
-#endif
-
-''' % (upper_filename, upper_filename, content)
+        return Template(C.HEADER_HEAD + get_header(filename) + C.HEADER_TAIL)\
+                .safe_substitute(self._project_vars)
 
 
     def _add_source(self, filename, path='src', extension=C.SOURCE_EXTENSION,
-                  comment=True):
+                    comment=True):
         """
         Adds a file into the internal FileTemplate object.
         """
         content = None
+        source = False
+        header = False
 
         if self._args.license is None:
             c_head = Template(C.HEAD).safe_substitute(self._project_vars)
@@ -123,13 +148,25 @@ class CTemplate(base.BaseTemplate):
 
         if extension == C.HEADER_EXTENSION:
             content = self._get_header_content(filename)
+            header = True
         else:
+            source = True
+
             # Did we receive a content from the command line?
             if self._args.content is not None:
                 content = Template(self._args.content.replace('^', '\n'))\
                                 .safe_substitute(self._project_vars)
+            else:
+                content = {
+                    'main': Template(C.MAIN_SOURCE)\
+                                .safe_substitute(self._project_vars),
+                    'error': Template(C.LIB_ERROR_SOURCE)\
+                                .safe_substitute(self._project_vars)
+                }.get(filename)
 
-        self._files.add(filename, path, head=c_head, body=content)
+        self._files.add(filename, path, head=c_head, body=content,
+                        source=source, header=header)
+
         self._files.set_property(filename, 'extension', extension)
 
 
@@ -186,6 +223,12 @@ class CTemplate(base.BaseTemplate):
 
         if self._args.project_type == utils.PTYPE_LIBRARY:
             self._add_source('utils')
+            self._add_source('error')
+            self._add_source('utils.h', 'include', C.HEADER_EXTENSION)
+            self._add_source('error.h', 'include', C.HEADER_EXTENSION)
+
+            # We must add this file as the last one, since we'll need to
+            # add a few includes inside it.
             self._add_source(self._args.prefix + app_name, 'include',
                              C.HEADER_EXTENSION)
 

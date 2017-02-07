@@ -65,7 +65,9 @@ class Template(object):
             'PROJECT_NAME_UPPER': self._args.prefix.upper() + \
                     self._args.project_name.upper().replace('-', '_'),
             'PROJECT_BIN_NAME': self._args.prefix + \
-                    self._args.project_name.replace('_', '-')
+                    self._args.project_name.replace('_', '-'),
+            'LIB_PREFIX': 'lib',
+            'LIB_PREFIX_UPPER': 'LIB'
         }
 
         # Disable package flag if we're creating a single file and set the

@@ -49,7 +49,6 @@ HEAD_LICENSE = '''#!/bin/bash
 
 '''
 
-TAIL = '''
-exit 0
+TAIL = '''exit 0
 '''
 

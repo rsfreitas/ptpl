@@ -121,3 +121,15 @@ def supported_languages():
 
 
 
+def assemble_filename(filename, extension):
+    """
+    Creates a filename with an extension, if an extension already exists
+    just returns the filename.
+    """
+    if extension not in filename:
+        filename += extension
+
+    return filename
+
+
+

@@ -25,25 +25,14 @@ import os
 
 from string import Template
 
-from . import languages, FileTemplate
+from . import FileTemplate, utils, license
+from .languages import bash
 
 PREFIX = 'package'
 
-BUILD_PACKAGE = '''#!/bin/bash
-
-#
-# Description:
-#
-# Author: $FULL_AUTHOR_NAME
-# Created at: $DATE
-# Project: $PROJECT_NAME
-#
-# Copyright (c) $YEAR All rights reserved
-#
-
-package_conf="../package.conf"
+BUILD_PACKAGE = '''package_conf="../package.conf"
 package_tmp_dir=tmpbuild
-arch=i686
+arch=`uname -m`
 
 # Compile all internal applications
 compile_applications()
@@ -51,7 +40,7 @@ compile_applications()
     local modules=`cfget -C $package_conf package/modules`
 
     for app in ${modules[@]}; do
-        echo "(cd ../../$app/src && make clean && make)"
+        (cd ../../$app/src && make clean && make)
     done
 }
 
@@ -80,7 +69,7 @@ copy_necessary_files()
     cp -f ../misc/*_cron $package_tmp_dir/etc/cron.d/$dest_cron || \\
         echo "Error copying to file '$dest_cron'."
 
-    local dest_init=`basename ../misc/*_initd _initd`
+    local dest_init=`basename ../misc/*_initd _initd`.sh
     cp -f ../misc/*_initd $package_tmp_dir/etc/init.d/$dest_init || \\
         echo "Error copying to file '$dest_init'."
 
@@ -110,6 +99,10 @@ build_package()
     local depends=''
     local maintainer=''
     local description=''
+
+    if [ "$arch" = "x86_64" ]; then
+        arch="amd64"
+    fi
 
     # Create CONTROL file
     cat << CONTROL >> $package_tmp_dir/DEBIAN/control
@@ -165,12 +158,9 @@ compile_applications
 copy_necessary_files
 build_package
 
-exit 0
 '''
 
-CLEAN_PACKAGE = '''#!/bin/bash
-
-package_dir=../../
+CLEAN_PACKAGE = '''package_dir=../../
 
 # Remove older versions
 rm -rf *.deb
@@ -180,23 +170,21 @@ for arq in $package_dir*/src; do
     (cd $arq && make clean)
 done
 
-exit 0
-'''
-
-DEB_SCRIPTS = '''#!/bin/bash
-
-exit 0
 '''
 
 CRON = '''SHELL=/bin/sh
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 
 */1 * * * *    root    /etc/init.d/$PROJECT_NAME.sh status || /etc/init.d/$PROJECT_NAME.sh start
+
 '''
 
 INITD = '''#!/bin/sh
 
 . /lib/lsb/init-functions
+
+ID=`id -u`
+RUN_PATH="/run/user/"$ID
 
 case "$1" in
     start)
@@ -220,12 +208,12 @@ case "$1" in
         ;;
 
     status)
-        if [ -s /var/run/$PROJECT_NAME.pid ]; then
-            if kill -0 `cat /var/run/$PROJECT_NAME.pid` 2>/dev/null; then
-                log_success_msg "$PROJECT_NAME esta sendo executado"
+        if [ -s $RUN_PATH/$PROJECT_NAME.pid ]; then
+            if kill -0 `cat $RUN_PATH/$PROJECT_NAME.pid` 2>/dev/null; then
+                log_success_msg "$PROJECT_NAME is not running"
                 exit 0
             else
-                log_failure_msg "/var/run/$PROJECT_NAME.pid exists but $PROJECT_NAME is not running"
+                log_failure_msg "$RUN_PATH/$PROJECT_NAME.pid exists but $PROJECT_NAME is not running"
                 exit 1
             fi
         else
@@ -252,6 +240,7 @@ case "$1" in
 esac
 
 exit 0
+
 '''
 
 PACKAGE_CONF = '''# Main package informations.
@@ -287,7 +276,7 @@ class Package(object):
         self._root_dir = PREFIX + '-' + \
                 self._args.prefix + self._args.project_name.replace('_', '-')
 
-        self._files = FileTemplate.FileTemplateInfo()
+        self._files = FileTemplate.FileTemplateInfo(self._root_dir + '/' + PREFIX)
         self._prepare_package_files()
 
 
@@ -304,83 +293,63 @@ class Package(object):
         """
         prefix = self._args.project_name.replace('-', '_')
         build_package = {
-            languages.C_LANGUAGE: \
+            utils.C_LANGUAGE: \
                 Template(BUILD_PACKAGE).safe_substitute(self._project_vars)
         }.get(self._args.language)
 
+        if self._args.license is None:
+            bash_head = Template(bash.HEAD).safe_substitute(self._project_vars)
+        else:
+            bash_head = Template(bash.HEAD_LICENSE)\
+                    .safe_substitute(self._project_vars) %\
+                    license.license_block(self._args.license,
+                                          self._project_vars,
+                                          comment_char='#')
+
+        bash_tail = Template(bash.TAIL).safe_substitute(self._project_vars)
+
         files = [
+            # (filename, executable, path, body, head, tail)
+
             # debian scripts
-            ('postinst', True, 'debian',
-                Template(DEB_SCRIPTS).safe_substitute(self._project_vars)),
-
-            ('postrm', True, 'debian',
-                Template(DEB_SCRIPTS).safe_substitute(self._project_vars)),
-
-            ('preinst', True, 'debian',
-                Template(DEB_SCRIPTS).safe_substitute(self._project_vars)),
-
-            ('prerm', True, 'debian',
-                Template(DEB_SCRIPTS).safe_substitute(self._project_vars)),
+            ('postinst', True, 'debian', None, bash_head, bash_tail),
+            ('postrm', True, 'debian', None, bash_head, bash_tail),
+            ('preinst', True, 'debian', None, bash_head, bash_tail),
+            ('prerm', True, 'debian', None, bash_head, bash_tail),
 
             # build-package
-            ('build-package', True, 'mount', build_package),
+            ('build-package', True, 'mount', build_package, bash_head,
+                bash_tail),
 
             # clean-package
             ('clean-package', True, 'mount',
-                Template(CLEAN_PACKAGE).safe_substitute(self._project_vars)),
+                Template(CLEAN_PACKAGE).safe_substitute(self._project_vars),
+                bash_head, bash_tail),
 
             # cron
             (prefix + '_cron', False, 'misc',
-                Template(CRON).safe_substitute(self._project_vars)),
+                Template(CRON).safe_substitute(self._project_vars),
+                None, None),
 
             # initd
             (prefix + '_initd', True, 'misc',
-                Template(INITD).safe_substitute(self._project_vars)),
+                Template(INITD).safe_substitute(self._project_vars),
+                None, None),
 
             # package.conf
             ('package.conf', False, '',
-                Template(PACKAGE_CONF).safe_substitute(self._project_vars))
+                Template(PACKAGE_CONF).safe_substitute(self._project_vars),
+                None, None)
         ]
 
         for script in files:
-            self._files.add(script[0], script[2], data=script[3],
-                            executable=script[1])
-
-
-    def _create_directories(self):
-        """
-        Create the package required directories.
-        """
-        subdirs = [
-            ['package', ['debian', 'mount', 'misc']]
-        ]
-
-        os.mkdir(self._root_dir)
-
-        for directory in subdirs:
-            os.mkdir(self._root_dir + '/' + directory[0])
-
-            for subdir in directory[1]:
-                os.mkdir(self._root_dir + '/' + directory[0] + '/' + subdir)
-
-
-    def _create_files(self):
-        for filename in self._files.filenames():
-            file_data = self._files.properties(filename)
-
-            pathname = self._root_dir + '/package/' + file_data.get('path') \
-                    + '/' + filename
-
-            with open(pathname, 'w') as out_fd:
-                out_fd.write(file_data.get('data'))
-
-            if file_data.get('chmod') is True:
-                os.system('chmod +x %s' % pathname)
+            self._files.add(script[0], script[2], body=script[3],
+                            executable=script[1], head=script[4],
+                            tail=script[5])
 
 
     def create(self):
-        self._create_directories()
-        self._create_files()
+        self._files.save_all()
 
 
 

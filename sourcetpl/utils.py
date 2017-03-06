@@ -23,6 +23,21 @@ Utility functions.
 
 import re
 import commands
+import collections
+
+# Supported projects
+PTYPE_SOURCE = 'source'
+PTYPE_HEADER = 'header'
+PTYPE_APPLICATION = 'application'
+PTYPE_LIBRARY = 'library'
+PTYPE_LIBCOLLECTION_APP = 'libcollection-app'
+PTYPE_LIBCOLLECTION_C_PLUGIN = 'libcollection-c-plugin'
+PTYPE_LIBCOLLECTION_PY_PLUGIN = 'libcollection-py-plugin'
+PTYPE_LIBCOLLECTION_JAVA_PLUGIN = 'libcollection-java-plugin'
+
+# Supported programming languages
+C_LANGUAGE = 'C'
+PYTHON_LANGUAGE = 'Python'
 
 def git_author_name():
     """
@@ -44,6 +59,77 @@ def multiple_split(entry):
         return list()
 
     return re.split(';|,|\|| ', entry)
+
+
+
+def supported_projects():
+    """
+    Gets all supported project formats.
+
+    :return Returns a dictionary with all supported project as keys and a brief
+            description of each one.
+    """
+    return {
+        PTYPE_SOURCE : 'Indicates the creation of a single source file.',
+        PTYPE_HEADER : 'Indicates the creation of a single header file.',
+        PTYPE_APPLICATION :
+            '''Indicates the creation of a directory with the following
+            \t\tstructure: $name/{include,src}, containing template files for
+            \t\ta single application (with a main function).''',
+
+        PTYPE_LIBRARY:
+            '''Indicates the creation of a directory to hold a library
+            \t\tdevelopment project, with a specific Makefile.''',
+
+        PTYPE_LIBCOLLECTION_APP :
+            '''Indicates the creation of an application using
+            \t\tlibcollections as its base.''',
+
+        PTYPE_LIBCOLLECTION_C_PLUGIN :
+            '''Indicates the creation of a libcollections' plugin (C)''',
+
+        PTYPE_LIBCOLLECTION_PY_PLUGIN :
+            '''Indicates the creation of a libcollections' plugin (Python)''',
+
+        PTYPE_LIBCOLLECTION_JAVA_PLUGIN :
+            '''Indicates the creation of a libcollections' plugin (Java)'''
+    }
+
+
+
+def supported_projects_description():
+    """
+    Returns a string containing a formatted output of all supported projects.
+    """
+    data = collections.OrderedDict(sorted(supported_projects().items()))
+    description = ''
+
+    for key, value in data.iteritems():
+        description += '%-25s - %s\n' % (key, value)
+
+    return description
+
+
+
+def supported_languages():
+    """
+    Gets all supported languages.
+
+    :return Returns a list of all supported languages.
+    """
+    return [C_LANGUAGE, PYTHON_LANGUAGE]
+
+
+
+def assemble_filename(filename, extension):
+    """
+    Creates a filename with an extension, if an extension already exists
+    just returns the filename.
+    """
+    if extension not in filename:
+        filename += extension
+
+    return filename
 
 
 

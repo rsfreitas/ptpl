@@ -18,9 +18,37 @@
 #
 
 """
-Supported languages for the templates.
+Specific data for bash language.
 """
 
-# Supported programming languages
-C_LANGUAGE = 'C'
+HEAD = '''#!/bin/bash
+
+#
+# Description:
+#
+# Author: $FULL_AUTHOR_NAME
+# Created at: $DATE
+# Project: $PROJECT_BIN_NAME
+#
+# Copyright (c) $YEAR All rights reserved
+#
+
+'''
+
+HEAD_LICENSE = '''#!/bin/bash
+
+#
+# Description:
+#
+# Author: $FULL_AUTHOR_NAME
+# Created at: $DATE
+# Project: $PROJECT_BIN_NAME
+#
+%s
+#
+
+'''
+
+TAIL = '''exit 0
+'''
 

@@ -18,31 +18,12 @@
 #
 
 """
-Template base abstract class that every language should inherit.
+Package to handle all languages specific file contents.
 """
 
-from abc import ABCMeta, abstractmethod
-
-class BaseTemplate(object):
-    """
-    Abstract class for all supported languages
-    """
-    __metaclass__ = ABCMeta
-
-    @abstractmethod
-    def create(self):
-        """
-        Method to create the required project.
-        """
-        pass
-
-
-    @abstractmethod
-    def info(self):
-        """
-        Method to show all info of the project in a user friendly format.
-        """
-        pass
-
-
+__all__ = [
+    'bash',
+    'C',
+    'python'
+]
 

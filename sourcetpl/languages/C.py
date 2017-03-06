@@ -258,8 +258,7 @@ dest_clean:
 install:
 	cp -f $(TARGET_SHARED) $(USR_DIR)
 	rm -rf $(USR_DIR)/$(LIBNAME) $(USR_DIR)/$(SONAME)
-	ln -s $(USR_DIR)/$(SHARED_LIBNAME) $(USR_DIR)/$(LIBNAME)
-	ln -s $(USR_DIR)/$(SHARED_LIBNAME) $(USR_DIR)/$(SONAME)
+	ln -sf $(USR_DIR)/$(SHARED_LIBNAME) $(USR_DIR)/$(LIBNAME)
 
 outputdirs: $(OUTPUTDIR)
 $(OUTPUTDIR):

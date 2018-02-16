@@ -17,7 +17,7 @@ type HeaderFile struct {
 
 func (s HeaderFile) Header(file *os.File) {
 	upper := strings.ToUpper(s.filename)
-	cnt := fmt.Sprintf("\n#ifndef _%s_H\n#define _%s_H\t\t1\n", upper, upper)
+	cnt := fmt.Sprintf("\n#ifndef _%s_H\n#define _%s_H\n", upper, upper)
 	file.WriteString(cnt)
 }
 

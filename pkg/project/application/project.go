@@ -1,6 +1,7 @@
 package application
 
 import (
+	"fmt"
 	"os"
 
 	"source-template/pkg/base"
@@ -18,7 +19,7 @@ type Application struct {
 }
 
 func (a Application) String() string {
-	return ""
+	return fmt.Sprintf("Application project")
 }
 
 func createApplicationDirtree(path string, options base.ProjectOptions) error {

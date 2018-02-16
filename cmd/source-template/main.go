@@ -30,36 +30,12 @@ import (
 )
 
 const AppName string = "source-tpl"
-const Version string = "0.1.0"
+const Version string = "0.2.0"
 
 type CLIOptions struct {
 	version bool
 	quiet   bool
 	base.ProjectOptions
-}
-
-//buildCLIOptions configures the application supported command line options.
-func buildCLIOptions(options *CLIOptions) {
-	flag.BoolVar(&options.version, "v", false,
-		"Shows the current application version.")
-
-	flag.BoolVar(&options.PackageProject, "package", false,
-		"Enables template creation as a project.")
-
-	flag.StringVar(&options.ProjectName, "name", "",
-		"Assigns the project's projectName.")
-
-	flag.IntVar(&options.Language, "language", base.CLanguage,
-		"Chooses the programming language to the created template.")
-
-	flag.StringVar(&options.AuthorName, "author", "",
-		"ASsigns the project author's projectName.")
-
-	flag.IntVar(&options.ProjectType, "type", base.SingleSourceProject,
-		"Chooses the template project type.")
-
-	flag.BoolVar(&options.quiet, "quiet", false,
-		"Disables project creation messages.")
 }
 
 func validateProjectType(projectType int) error {
@@ -71,7 +47,11 @@ func validateProjectType(projectType int) error {
 	return errors.New("Unsupported chosen project")
 }
 
-func validateProjectLanguage(language int) error {
+func validateProjectLanguage(language int, projectType int) error {
+	if language != base.CLanguage && projectType != base.XantePluginProject {
+		return errors.New("Programming language unsupported for this kind of project")
+	}
+
 	switch {
 	case language >= base.CLanguage && language <= base.RustLanguage:
 		return nil
@@ -80,23 +60,63 @@ func validateProjectLanguage(language int) error {
 	return errors.New("Unsupported programming language")
 }
 
-//validateOptions does the command line options validations
+// validateOptions does the command line options validations
 func validateOptions(options CLIOptions) error {
-	if err := validateProjectType(options.ProjectType); err != nil {
+	err := validateProjectType(options.ProjectType)
+
+	if err != nil {
 		return err
 	}
 
-	if err := validateProjectLanguage(options.Language); err != nil {
+	err := validateProjectLanguage(options.Language, options.ProjectType)
+
+	if err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func main() {
+// getCLIOptions configures the application supported command line options.
+func getCLIOptions() CLIOptions {
 	var options CLIOptions
+	var projectType, language string
 
-	buildCLIOptions(&options)
+	flag.BoolVar(&options.version, "v", false,
+		"Shows the current application version.")
+
+	flag.BoolVar(&options.PackageProject, "package", false,
+		"Enables template creation as a project.")
+
+	flag.StringVar(&options.ProjectName, "name", "",
+		"Assigns the project's name.")
+
+	language, err := base.LanguageKey(base.CLanguage)
+
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(-1)
+	}
+
+	flag.StringVar(&language, "language", language,
+		"Chooses the programming language to the created template.")
+
+	flag.StringVar(&options.AuthorName, "author", "",
+		"Assigns the project author's name.")
+
+	defaultProject, err := base.ProjectKey(base.SingleSourceProject)
+
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(-1)
+	}
+
+	flag.StringVar(&projectType, "type", defaultProject,
+		"Chooses the template project type.")
+
+	flag.BoolVar(&options.quiet, "quiet", false,
+		"Disables project creation messages.")
+
 	flag.Parse()
 
 	if options.version {
@@ -104,11 +124,30 @@ func main() {
 		os.Exit(0)
 	}
 
+	options.ProjectType, err = base.ProjectLookup(projectType)
+
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(-1)
+	}
+
+	options.Language, err = base.LanguageLookup(language)
+
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(-1)
+	}
+
 	if err := validateOptions(options); err != nil {
 		fmt.Println(err)
 		os.Exit(-1)
 	}
 
+	return options
+}
+
+func main() {
+	options := getCLIOptions()
 	p, err := project.Assemble(options.ProjectOptions)
 
 	if err != nil {

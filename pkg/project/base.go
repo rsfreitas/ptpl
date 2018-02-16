@@ -44,7 +44,7 @@ func Assemble(options base.ProjectOptions) (base.Project, error) {
 	project, ok := projectFactory[options.ProjectType]
 
 	if !ok {
-		return nil, errors.New("Unimplemented project.")
+		return nil, errors.New("unimplemented project")
 	}
 
 	return project(options)

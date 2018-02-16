@@ -37,5 +37,4 @@ type Project interface {
 
 //Also, every supported project must have at least a function with the following
 //signature:
-//type ProjectFactory func(string, int, string, int, bool) (Project, error)
 type ProjectFactory func(ProjectOptions) (Project, error)

@@ -1,6 +1,7 @@
 package library
 
 import (
+	"fmt"
 	"os"
 
 	"source-template/pkg/base"
@@ -17,7 +18,7 @@ type Library struct {
 }
 
 func (l Library) String() string {
-	return ""
+	return fmt.Sprintf("Library project")
 }
 
 func createLibraryDirtree(path string, options base.ProjectOptions) error {

@@ -5,7 +5,7 @@ import (
 	"source-template/pkg/templates"
 )
 
-func CreateDebianScripts(options base.ProjectOptions, rootPath string, prefix string) []base.FileInfo {
+func CreateDebianScripts(options base.ProjectOptions, rootPath string) []base.FileInfo {
 	var files []base.FileInfo
 	scripts := []string{
 		"preinst",
@@ -34,4 +34,18 @@ func CreateDebianScripts(options base.ProjectOptions, rootPath string, prefix st
 	}
 
 	return files
+}
+
+func CreateMakefile(options base.ProjectOptions, rootPath string, prefix string) base.FileInfo {
+	fileOptions := base.FileOptions{
+		Executable:     false,
+		HeaderComment:  false,
+		ProjectOptions: options,
+		Name:           rootPath + "/" + prefix + "/CMakeLists.txt",
+	}
+
+	return base.FileInfo{
+		FileOptions:  fileOptions,
+		FileTemplate: templates.NewMakefile(fileOptions),
+	}
 }

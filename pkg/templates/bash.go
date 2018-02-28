@@ -9,6 +9,7 @@ import (
 
 type BashFile struct {
 	base.FileOptions
+	ContentData
 }
 
 func (s BashFile) Header(file *os.File) {
@@ -16,17 +17,13 @@ func (s BashFile) Header(file *os.File) {
 }
 
 func (s BashFile) HeaderComment(file *os.File) {
-	file.WriteString(`
-#
-# Description:
-#
-# Author:
-# Created at:
-# Project:
-#
-# Copyright (C) 2017 Author Name All rights reserved.
-#
-`)
+	tpl, err := BashSourceHeader()
+
+	if err != nil {
+		return
+	}
+
+	tpl.Execute(file, s.ContentData)
 }
 
 func (s BashFile) Footer(file *os.File) {
@@ -41,5 +38,6 @@ func (s BashFile) Content(file *os.File) {
 func NewBash(options base.FileOptions) base.FileTemplate {
 	return &BashFile{
 		FileOptions: options,
+		ContentData: GetContentData(options),
 	}
 }

@@ -13,6 +13,8 @@ type Library struct {
 	sources  []base.FileInfo
 	headers  []base.FileInfo
 	debian   []base.FileInfo
+	makefile base.FileInfo
+	symbol   base.FileInfo
 	rootPath string
 	base.ProjectOptions
 }
@@ -32,7 +34,9 @@ func createLibraryDirtree(path string, options base.ProjectOptions) error {
 	}
 
 	subdirs = append(subdirs, prefix+"/src")
-	subdirs = append(subdirs, prefix+"/include")
+	subdirs = append(subdirs, prefix+"/include/api")
+	subdirs = append(subdirs, prefix+"/include/internal")
+	subdirs = append(subdirs, prefix+"/misc")
 
 	for _, dir := range subdirs {
 		err := os.MkdirAll(path+"/"+dir, 0755)
@@ -65,7 +69,15 @@ func (l Library) Build() error {
 		}
 	}
 
-	// create Makefile (future CMakeLists.txt)
+	// create CMakeLists.txt
+	if err := l.makefile.Build(); err != nil {
+		return err
+	}
+
+	// create symbols file
+	if err := l.symbol.Build(); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -75,7 +87,6 @@ func createSources(options base.ProjectOptions, rootPath string, prefix string) 
 
 	sources := []string{
 		"utils",
-		"log",
 		"error",
 	}
 
@@ -97,25 +108,39 @@ func createSources(options base.ProjectOptions, rootPath string, prefix string) 
 
 func createHeaders(options base.ProjectOptions, rootPath string, prefix string) []base.FileInfo {
 	var files []base.FileInfo
-	var headers []string
+	headers := make(map[string]string)
 
-	headers = append(headers, "lib"+options.ProjectName)
-	headers = append(headers, "lib"+options.ProjectName+"_internal.h")
+	headers["lib"+options.ProjectName] = ""
+	headers["internal/internal.h"] = ""
 
-	for _, h := range headers {
+	for k, v := range headers {
 		fileOptions := base.FileOptions{
 			ProjectOptions: options,
 			HeaderComment:  true,
-			Name:           base.AddExtension(rootPath+"/"+prefix+"/include/"+h, ".h"),
+			Name:           base.AddExtension(rootPath+"/"+prefix+"/include/"+k, ".h"),
 		}
 
 		files = append(files, base.FileInfo{
 			FileOptions:  fileOptions,
-			FileTemplate: templates.NewHeader(fileOptions, ""),
+			FileTemplate: templates.NewHeader(fileOptions, v),
 		})
 	}
 
 	return files
+}
+
+func createSymbol(options base.ProjectOptions, rootPath string, prefix string) base.FileInfo {
+	fileOptions := base.FileOptions{
+		Executable:     false,
+		HeaderComment:  false,
+		ProjectOptions: options,
+		Name:           rootPath + "/" + prefix + "/misc/lib" + options.ProjectName + ".sym",
+	}
+
+	return base.FileInfo{
+		FileOptions:  fileOptions,
+		FileTemplate: templates.NewSymbol(fileOptions),
+	}
 }
 
 func New(options base.ProjectOptions) (base.Project, error) {
@@ -138,7 +163,9 @@ func New(options base.ProjectOptions) (base.Project, error) {
 		rootPath:       rootPath,
 		sources:        createSources(options, rootPath, prefix),
 		headers:        createHeaders(options, rootPath, prefix),
-		debian:         common.CreateDebianScripts(options, rootPath, prefix),
+		debian:         common.CreateDebianScripts(options, rootPath),
 		ProjectOptions: options,
+		makefile:       common.CreateMakefile(options, rootPath, prefix),
+		symbol:         createSymbol(options, rootPath, prefix),
 	}, nil
 }

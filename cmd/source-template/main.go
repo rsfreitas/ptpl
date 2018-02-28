@@ -68,7 +68,7 @@ func validateOptions(options CLIOptions) error {
 		return err
 	}
 
-	err := validateProjectLanguage(options.Language, options.ProjectType)
+	err = validateProjectLanguage(options.Language, options.ProjectType)
 
 	if err != nil {
 		return err
@@ -77,6 +77,7 @@ func validateOptions(options CLIOptions) error {
 	return nil
 }
 
+// TODO: Add description of options
 // getCLIOptions configures the application supported command line options.
 func getCLIOptions() CLIOptions {
 	var options CLIOptions

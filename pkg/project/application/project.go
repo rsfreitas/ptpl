@@ -14,6 +14,7 @@ type Application struct {
 	headers  []base.FileInfo
 	debian   []base.FileInfo
 	misc     []base.FileInfo
+	makefile base.FileInfo
 	rootPath string
 	base.ProjectOptions
 }
@@ -73,7 +74,7 @@ func (a Application) Build() error {
 		}
 	}
 
-	// create Makefile (future CMakeLists.txt)
+	// create CMakeLists.txt
 
 	return nil
 }
@@ -147,8 +148,9 @@ func New(options base.ProjectOptions) (base.Project, error) {
 		rootPath:       rootPath,
 		sources:        createSources(options, rootPath, prefix),
 		headers:        createHeaders(options, rootPath, prefix),
-		debian:         common.CreateDebianScripts(options, rootPath, prefix),
+		debian:         common.CreateDebianScripts(options, rootPath),
 		ProjectOptions: options,
+		makefile:       common.CreateMakefile(options, rootPath, prefix),
 	}
 
 	return application, nil

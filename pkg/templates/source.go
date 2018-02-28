@@ -29,27 +29,31 @@ import (
 type SourceFile struct {
 	filename string
 	content  string
-	base.FileOptions
+	options  base.FileOptions
+	ContentData
 }
 
 func (s SourceFile) Header(file *os.File) {
+	var cnt string
+
 	// if we're creating a project, probably will have an include directive here
-	cnt := fmt.Sprintf("\n#include \"%[1]s.h\"\n", s.filename)
+	if s.options.ProjectType == base.LibraryProject {
+		cnt = fmt.Sprintf("\n#include \"lib%[1]s.h\"\n", s.options.ProjectName)
+	} else {
+		cnt = fmt.Sprintf("\n#include \"%[1]s.h\"\n", s.filename)
+	}
+
 	file.WriteString(cnt)
 }
 
 func (s SourceFile) HeaderComment(file *os.File) {
-	file.WriteString(`
-/*
- * Description:
- *
- * Author:
- * Created at:
- * Project:
- *
- * Copyright (C) 2017 Author Name All rights reserved.
- */
-`)
+	tpl, err := CSourceHeader()
+
+	if err != nil {
+		return
+	}
+
+	tpl.Execute(file, s.ContentData)
 }
 
 func (s SourceFile) Footer(file *os.File) {
@@ -86,7 +90,6 @@ int main(int argc, char **argv)
 
 	return 0;
 }
-
 `
 }
 
@@ -105,8 +108,9 @@ func NewSource(options base.FileOptions) base.FileTemplate {
 	}
 
 	return &SourceFile{
-		FileOptions: options,
+		options:     options,
 		filename:    bname,
 		content:     content,
+		ContentData: GetContentData(options),
 	}
 }

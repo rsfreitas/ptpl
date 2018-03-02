@@ -62,6 +62,14 @@ func validateProjectLanguage(language int, projectType int) error {
 
 // validateOptions does the command line options validations
 func validateOptions(options CLIOptions) error {
+	if options.AuthorName == "" {
+		return errors.New("We must provide the project author name for the templates")
+	}
+
+	if options.ProjectName == "" {
+		return errors.New("We must provide the project name")
+	}
+
 	err := validateProjectType(options.ProjectType)
 
 	if err != nil {
@@ -82,6 +90,9 @@ func validateOptions(options CLIOptions) error {
 func getCLIOptions() CLIOptions {
 	var options CLIOptions
 	var projectType, language string
+
+	flag.BoolVar(&options.LibcollectionsFeatures, "c", false,
+		"Turn on the use of libcollections features into the templates.")
 
 	flag.BoolVar(&options.version, "v", false,
 		"Shows the current application version.")

@@ -30,7 +30,7 @@ func New(options base.ProjectOptions) (base.Project, error) {
 	return &SingleHeader{
 		file: base.FileInfo{
 			FileOptions:  fileOptions,
-			FileTemplate: templates.NewHeader(fileOptions, ""),
+			FileTemplate: templates.NewHeader(fileOptions, nil),
 		},
 		ProjectOptions: options,
 	}, nil

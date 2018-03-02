@@ -121,7 +121,7 @@ func createHeaders(options base.ProjectOptions, rootPath string, prefix string) 
 
 		files = append(files, base.FileInfo{
 			FileOptions:  fileOptions,
-			FileTemplate: templates.NewHeader(fileOptions, ""),
+			FileTemplate: templates.NewHeader(fileOptions, nil),
 		})
 	}
 

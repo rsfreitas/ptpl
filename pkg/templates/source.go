@@ -21,7 +21,7 @@ package templates
 import (
 	"fmt"
 	"os"
-	"path/filepath"
+	"text/template"
 
 	"source-template/pkg/base"
 )
@@ -61,9 +61,14 @@ func (s SourceFile) Footer(file *os.File) {
 }
 
 func (s SourceFile) Content(file *os.File) {
-	if s.content != "" {
-		file.WriteString(s.content)
+	tmpTpl := template.New("source")
+	tpl, err := tmpTpl.Parse(s.content)
+
+	if err != nil {
+		return
 	}
+
+	tpl.Execute(file, s.ContentData)
 }
 
 func mainContent(projectName string) string {
@@ -95,16 +100,13 @@ int main(int argc, char **argv)
 
 func NewSource(options base.FileOptions) base.FileTemplate {
 	var content string
-
-	bname := filepath.Base(options.Name)
-	extension := filepath.Ext(bname)
-	bname = bname[0 : len(bname)-len(extension)]
+	bname := extractFilename(options.Name, options.ProjectType)
 
 	// here we build what will be the file content based on its name (basename)
-	if options.ProjectType == base.ApplicationProject {
-		if bname == "main" {
-			content = mainContent(options.ProjectName)
-		}
+	if bname == "main" {
+		content = mainContent(options.ProjectName)
+	} else if bname == "error" {
+		content = errorContent(Source, options)
 	}
 
 	return &SourceFile{

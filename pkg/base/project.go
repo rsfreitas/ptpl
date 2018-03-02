@@ -19,22 +19,23 @@
 package base
 
 type ProjectOptions struct {
-	PackageProject bool
-	ProjectName    string
-	AuthorName     string
-	Language       int
-	ProjectType    int
+	PackageProject         bool
+	ProjectName            string
+	AuthorName             string
+	Language               int
+	ProjectType            int
+	LibcollectionsFeatures bool
 }
 
 type Project interface {
-	//String must return in a human readable format of the project's description.
+	// String must return in a human readable format of the project's description.
 	String() string
 
-	//Build is where all the magic must happen and the template project must
-	//be created.
+	// Build is where all the magic must happen and the template project must
+	// be created.
 	Build() error
 }
 
-//Also, every supported project must have at least a function with the following
-//signature:
+// Also, every supported project must have at least a function with the following
+// signature:
 type ProjectFactory func(ProjectOptions) (Project, error)

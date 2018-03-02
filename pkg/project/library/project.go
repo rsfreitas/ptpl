@@ -82,9 +82,8 @@ func (l Library) Build() error {
 	return nil
 }
 
-func createSources(options base.ProjectOptions, rootPath string, prefix string) []base.FileInfo {
+func createSources(options base.ProjectOptions, rootPath string, prefix string) ([]base.FileInfo, []string) {
 	var files []base.FileInfo
-
 	sources := []string{
 		"utils",
 		"error",
@@ -103,26 +102,30 @@ func createSources(options base.ProjectOptions, rootPath string, prefix string) 
 		})
 	}
 
-	return files
+	return files, sources
 }
 
-func createHeaders(options base.ProjectOptions, rootPath string, prefix string) []base.FileInfo {
+func createHeaders(options base.ProjectOptions, rootPath string, prefix string, sources []string) []base.FileInfo {
 	var files []base.FileInfo
-	headers := make(map[string]string)
+	headers := []string{
+		"lib" + options.ProjectName,
+		"internal/internal.h",
+		"internal/utils.h",
+		"internal/error.h",
+		"api/utils.h",
+		"api/error.h",
+	}
 
-	headers["lib"+options.ProjectName] = ""
-	headers["internal/internal.h"] = ""
-
-	for k, v := range headers {
+	for _, h := range headers {
 		fileOptions := base.FileOptions{
 			ProjectOptions: options,
 			HeaderComment:  true,
-			Name:           base.AddExtension(rootPath+"/"+prefix+"/include/"+k, ".h"),
+			Name:           base.AddExtension(rootPath+"/"+prefix+"/include/"+h, ".h"),
 		}
 
 		files = append(files, base.FileInfo{
 			FileOptions:  fileOptions,
-			FileTemplate: templates.NewHeader(fileOptions, v),
+			FileTemplate: templates.NewHeader(fileOptions, sources),
 		})
 	}
 
@@ -159,10 +162,12 @@ func New(options base.ProjectOptions) (base.Project, error) {
 		rootPath = cwd + "/lib" + options.ProjectName
 	}
 
+	sources, sourceFilenames := createSources(options, rootPath, prefix)
+
 	return &Library{
 		rootPath:       rootPath,
-		sources:        createSources(options, rootPath, prefix),
-		headers:        createHeaders(options, rootPath, prefix),
+		sources:        sources, //createSources(options, rootPath, prefix),
+		headers:        createHeaders(options, rootPath, prefix, sourceFilenames),
 		debian:         common.CreateDebianScripts(options, rootPath),
 		ProjectOptions: options,
 		makefile:       common.CreateMakefile(options, rootPath, prefix),

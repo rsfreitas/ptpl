@@ -40,6 +40,7 @@ func (s SourceFile) Header(file *os.File) {
 	if s.options.ProjectType == base.LibraryProject {
 		cnt = fmt.Sprintf("\n#include \"lib%[1]s.h\"\n", s.options.ProjectName)
 	} else {
+		// XXX: Do we need this include in a single source file?
 		cnt = fmt.Sprintf("\n#include \"%[1]s.h\"\n", s.options.ProjectName)
 	}
 

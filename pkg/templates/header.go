@@ -91,7 +91,7 @@ func applicationMainHeaderContent(name string, projectType int) string {
 #endif
 
 {{.ProjectIncludeFiles}}`, strings.ToUpper(name))
-	} else {
+	} else if projectType == base.ApplicationProject {
 		cnt = fmt.Sprintf(`
 /* Standard library headers */
 #include <stdlib.h>

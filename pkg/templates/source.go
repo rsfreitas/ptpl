@@ -40,7 +40,7 @@ func (s SourceFile) Header(file *os.File) {
 	if s.options.ProjectType == base.LibraryProject {
 		cnt = fmt.Sprintf("\n#include \"lib%[1]s.h\"\n", s.options.ProjectName)
 	} else {
-		cnt = fmt.Sprintf("\n#include \"%[1]s.h\"\n", s.filename)
+		cnt = fmt.Sprintf("\n#include \"%[1]s.h\"\n", s.options.ProjectName)
 	}
 
 	file.WriteString(cnt)
@@ -71,8 +71,24 @@ func (s SourceFile) Content(file *os.File) {
 	tpl.Execute(file, s.ContentData)
 }
 
-func mainContent(projectName string) string {
+func mainContent() string {
 	return `
+static void usage(void)
+{
+    printf("Usage: %s [OPTIONS]\n", APP_NAME);
+    printf("A brief description.\n\n");
+    printf("Options:\n\n");
+    printf("  -h, --help                 Shows this help screen.\n");
+    printf("  -v, --version              Shows current jerminus version.\n");
+    printf("\n");
+}
+
+static void version(void)
+{
+    printf("%s - Version %d.%d.%d %s\n", APP_NAME, MAJOR_VERSION, MINOR_VERSION,
+           RELEASE, (BETA == true) ? "beta" : "");
+}
+
 int main(int argc, char **argv)
 {
 	const char *opt = "hv\0";
@@ -83,9 +99,11 @@ int main(int argc, char **argv)
 
 		switch (option) {
 			case 'h':
+				usage();
 				return 1;
 
 			case 'v':
+				version();
 				return 1;
 
 			case '?':
@@ -101,10 +119,11 @@ int main(int argc, char **argv)
 func NewSource(options base.FileOptions) base.FileTemplate {
 	var content string
 	bname := extractFilename(options.Name, options.ProjectType)
+	contentData := GetContentData(options)
 
 	// here we build what will be the file content based on its name (basename)
 	if bname == "main" {
-		content = mainContent(options.ProjectName)
+		content = mainContent()
 	} else if bname == "error" {
 		content = errorContent(Source, options)
 	}
@@ -113,6 +132,6 @@ func NewSource(options base.FileOptions) base.FileTemplate {
 		options:     options,
 		filename:    bname,
 		content:     content,
-		ContentData: GetContentData(options),
+		ContentData: contentData,
 	}
 }

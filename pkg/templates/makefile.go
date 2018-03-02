@@ -1,3 +1,20 @@
+//
+// Copyright (C) 2017 Rodrigo Freitas
+//
+// This program is free software; you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation; either version 2 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with this program; if not, write to the Free Software Foundation, Inc.,
+// 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+//
 package templates
 
 import (
@@ -92,6 +109,33 @@ if(SHARED)
 endif(SHARED)
 `
 
+const appContent = `
+project({{.ProjectName}})
+cmake_minimum_required(VERSION 2.8)
+
+# Options
+option(DEBUG "Enable/Disable debug version" ON)
+
+include_directories(include)
+include_directories("/usr/local/include")
+
+if(CMAKE_C_COMPILER_VERSION VERSION_GREATER 5)
+    add_definitions(-fgnu89-inline)
+endif()
+
+add_definitions("-Wall -Wextra -O0")
+
+if(DEBUG)
+    add_definitions("-ggdb")
+endif(DEBUG)
+
+file(GLOB SOURCES "src/*c")
+add_executable(${PROJECT_NAME} ${SOURCES})
+
+link_directories("/usr/local/lib")
+target_link_libraries(${PROJECT_NAME} {{.LibcollectionsLinker}})
+`
+
 type Makefile struct {
 	Options base.FileOptions
 	ContentData
@@ -112,6 +156,8 @@ func (m Makefile) Content(file *os.File) {
 
 	if m.Options.ProjectType == base.LibraryProject {
 		content = libContent
+	} else {
+		content = appContent
 	}
 
 	tpl, err := tpl.Parse(content)
@@ -124,8 +170,14 @@ func (m Makefile) Content(file *os.File) {
 }
 
 func NewMakefile(options base.FileOptions) base.FileTemplate {
+	contentData := GetContentData(options)
+
+	if options.LibcollectionsFeatures {
+		contentData.LibcollectionsLinker = "collections"
+	}
+
 	return &Makefile{
 		Options:     options,
-		ContentData: GetContentData(options),
+		ContentData: contentData,
 	}
 }

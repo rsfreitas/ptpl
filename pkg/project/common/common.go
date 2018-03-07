@@ -18,6 +18,8 @@
 package common
 
 import (
+	"strings"
+
 	"source-template/pkg/base"
 	"source-template/pkg/templates"
 )
@@ -64,5 +66,19 @@ func CreateMakefile(options base.ProjectOptions, rootPath string, prefix string)
 	return base.FileInfo{
 		FileOptions:  fileOptions,
 		FileTemplate: templates.NewMakefile(fileOptions),
+	}
+}
+
+func CreateSystemdService(options base.ProjectOptions, rootPath, prefix string) base.FileInfo {
+	fileOptions := base.FileOptions{
+		Executable:     false,
+		HeaderComment:  false,
+		ProjectOptions: options,
+		Name:           rootPath + "/" + prefix + "/pkg_install/misc/" + strings.ToLower(options.ProjectName) + ".service",
+	}
+
+	return base.FileInfo{
+		FileOptions:  fileOptions,
+		FileTemplate: templates.NewBash(fileOptions),
 	}
 }

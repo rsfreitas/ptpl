@@ -37,7 +37,7 @@ type HeaderFile struct {
 }
 
 func (s HeaderFile) Header(file *os.File) {
-	upper := s.filename
+	upper := strings.Replace(s.filename, "-", "_", -1)
 
 	if s.ProjectType == base.LibraryProject {
 		upper = fmt.Sprintf("LIB%s_%s_%s", s.ProjectName, s.headerPath, upper)
@@ -94,8 +94,10 @@ func applicationMainHeaderContent(name string, projectType int) string {
 	} else if projectType == base.ApplicationProject {
 		cnt = fmt.Sprintf(`
 /* Standard library headers */
+#include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <stdbool.h>
 
 /* External library headers */
 {{.LibcollectionsInclude}}
@@ -110,8 +112,7 @@ func applicationMainHeaderContent(name string, projectType int) string {
 	return cnt
 }
 
-func internalLibraryHeaderContent() string {
-	return `
+const internalLibraryHeaderContent = `
 /*
  * An internal representation of a public function. It does not affect the code
  * or the function visibility. Its objective is only to let clear what is and
@@ -129,10 +130,8 @@ func internalLibraryHeaderContent() string {
 
 /* Internal library API */
 {{.ProjectIncludeFiles}}`
-}
 
-func applicationDefines() string {
-	return `
+const applicationDefines = `
 #define MAJOR_VERSION			0
 #define MINOR_VERSION			1
 #define RELEASE					1
@@ -140,7 +139,12 @@ func applicationDefines() string {
 
 #define APP_NAME				"{{.ProjectName}}"
 `
-}
+
+const pluginHeaderContent = `
+/* External libraries */
+#include <collections.h>
+#include <libxante.h>
+`
 
 func projectIncludeFiles(sourceFilenames []string, includePath string) string {
 	var s bytes.Buffer
@@ -164,7 +168,7 @@ func NewHeader(options base.FileOptions, sources []string) base.FileTemplate {
 		content = applicationMainHeaderContent(bname, options.ProjectType)
 		includePath = "api"
 	} else if bname == "internal" {
-		content = internalLibraryHeaderContent()
+		content = internalLibraryHeaderContent
 		includePath = "internal"
 	} else if bname == "error" {
 		dir = filepath.Base(filepath.Dir(options.Name))
@@ -176,7 +180,9 @@ func NewHeader(options base.FileOptions, sources []string) base.FileTemplate {
 
 		content = errorContent(flags, options)
 	} else if strings.Contains(bname, "_def") {
-		content = applicationDefines()
+		content = applicationDefines
+	} else if bname == "plugin" {
+		content = pluginHeaderContent
 	}
 
 	contentData := GetContentData(options)

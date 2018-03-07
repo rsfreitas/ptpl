@@ -39,6 +39,8 @@ func (s SourceFile) Header(file *os.File) {
 	// if we're creating a project, probably will have an include directive here
 	if s.options.ProjectType == base.LibraryProject {
 		cnt = fmt.Sprintf("\n#include \"lib%[1]s.h\"\n", s.options.ProjectName)
+	} else if s.options.ProjectType == base.XantePluginProject {
+		cnt = fmt.Sprintf("\n#include \"plugin.h\"\n")
 	} else {
 		// XXX: Do we need this include in a single source file?
 		cnt = fmt.Sprintf("\n#include \"%[1]s.h\"\n", s.options.ProjectName)
@@ -58,7 +60,7 @@ func (s SourceFile) HeaderComment(file *os.File) {
 }
 
 func (s SourceFile) Footer(file *os.File) {
-	//nothing here
+	// nothing here
 }
 
 func (s SourceFile) Content(file *os.File) {
@@ -72,8 +74,7 @@ func (s SourceFile) Content(file *os.File) {
 	tpl.Execute(file, s.ContentData)
 }
 
-func mainContent() string {
-	return `
+const mainContent = `
 static void usage(void)
 {
     printf("Usage: %s [OPTIONS]\n", APP_NAME);
@@ -115,6 +116,101 @@ int main(int argc, char **argv)
 	return 0;
 }
 `
+
+func pluginContent() string {
+	return `
+/*
+ *
+ * Plugin information
+ *
+ */
+#define PLUGIN_API      "{\
+    \"API\": [\
+        { \"name\": \"xapl_init\", \"return_type\": \"int\",\
+            \"arguments\": [\
+                { \"name\": \"xpp_args\", \"type\": \"pointer\" }\
+            ]\
+        },\
+        { \"name\": \"xapl_uninit\", \"return_type\": \"void\",\
+            \"arguments\": [\
+                { \"name\": \"xpp_args\", \"type\": \"pointer\" }\
+            ]\
+        },\
+        { \"name\": \"xapl_config_load\", \"return_type\": \"void\",\
+            \"arguments\": [\
+                { \"name\": \"xpp_args\", \"type\": \"pointer\" }\
+            ]\
+        },\
+        { \"name\": \"xapl_config_unload\", \"return_type\": \"void\",\
+            \"arguments\": [\
+                { \"name\": \"xpp_args\", \"type\": \"pointer\" }\
+            ]\
+        },\
+        { \"name\": \"xapl_changes_saved\", \"return_type\": \"int\",\
+            \"arguments\": [\
+                { \"name\": \"xpp_args\", \"type\": \"pointer\" }\
+            ]\
+        }\
+    ]\
+}"
+
+CL_PLUGIN_SET_INFO(
+    {{.ProjectNameSnaked}},
+    "0.1.1",
+    "{{.Author}}",
+    "description",
+    PLUGIN_API
+)
+
+/*
+ *
+ * Startup and shutdown
+ *
+ */
+
+CL_PLUGIN_INIT()
+{
+    return 0;
+}
+
+CL_PLUGIN_UNINIT()
+{
+}
+
+/*
+ *
+ * Main libxante events
+ *
+ */
+
+CL_PLUGIN_OBJECT_PTR_ONLY(int, xapl_init)
+{
+    xante_event_arg_t *args = CL_PLUGIN_PTR_ARGUMENT();
+    return 0;
+}
+
+CL_PLUGIN_OBJECT_PTR_ONLY(void, xapl_uninit)
+{
+    xante_event_arg_t *args = CL_PLUGIN_PTR_ARGUMENT();
+}
+
+CL_PLUGIN_OBJECT_PTR_ONLY(void, xapl_config_load)
+{
+    xante_event_arg_t *args = CL_PLUGIN_PTR_ARGUMENT();
+}
+
+CL_PLUGIN_OBJECT_PTR_ONLY(void, xapl_config_unload)
+{
+    xante_event_arg_t *args = CL_PLUGIN_PTR_ARGUMENT();
+}
+
+CL_PLUGIN_OBJECT_PTR_ONLY(int, xapl_changes_saved)
+{
+    xante_event_arg_t *args = CL_PLUGIN_PTR_ARGUMENT();
+
+    return 0;
+}
+`
 }
 
 func NewSource(options base.FileOptions) base.FileTemplate {
@@ -124,9 +220,11 @@ func NewSource(options base.FileOptions) base.FileTemplate {
 
 	// here we build what will be the file content based on its name (basename)
 	if bname == "main" {
-		content = mainContent()
+		content = mainContent
 	} else if bname == "error" {
 		content = errorContent(Source, options)
+	} else if bname == "plugin" {
+		content = pluginContent()
 	}
 
 	return &SourceFile{

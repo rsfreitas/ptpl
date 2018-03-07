@@ -30,7 +30,6 @@ type Application struct {
 	sources  []base.FileInfo
 	headers  []base.FileInfo
 	debian   []base.FileInfo
-	misc     []base.FileInfo
 	makefile base.FileInfo
 	rootPath string
 	base.ProjectOptions

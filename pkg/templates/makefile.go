@@ -109,8 +109,7 @@ if(SHARED)
 endif(SHARED)
 `
 
-const appContent = `
-project({{.ProjectName}})
+const appContent = `project({{.ProjectName}})
 cmake_minimum_required(VERSION 2.8)
 
 # Options
@@ -136,18 +135,52 @@ link_directories("/usr/local/lib")
 target_link_libraries(${PROJECT_NAME} {{.LibcollectionsLinker}})
 `
 
+const pluginCMakeContent = `project({{.ProjectName}})
+cmake_minimum_required(VERSION 2.8)
+
+# Options
+option(DEBUG "Enable/Disable debug version" ON)
+
+include_directories(include)
+include_directories("/usr/local/include")
+
+if(CMAKE_C_COMPILER_VERSION VERSION_GREATER 5)
+    add_definitions(-fgnu89-inline)
+endif()
+
+add_definitions("-Wall -Wextra -O0 -fPIC -fvisibility=hidden -D_GNU_SOURCE")
+
+if(DEBUG)
+    add_definitions("-ggdb -g3")
+endif(DEBUG)
+
+file(GLOB SOURCES "src/*c")
+
+link_directories("/usr/local/lib")
+add_library(${PROJECT_NAME} SHARED ${SOURCES})
+target_link_libraries(${PROJECT_NAME} xante collections)
+set_target_properties(${PROJECT_NAME} PROPERTIES
+                      LINK_FLAGS "-Wl,-soname,${PROJECT_NAME}.so")
+
+set_target_properties(${PROJECT_NAME} PROPERTIES SUFFIX .so)
+set_target_properties(${PROJECT_NAME} PROPERTIES PREFIX "")
+`
+
 type Makefile struct {
 	Options base.FileOptions
 	ContentData
 }
 
 func (m Makefile) Header(file *os.File) {
+	// nothing here
 }
 
 func (m Makefile) HeaderComment(file *os.File) {
+	// nothing here
 }
 
 func (m Makefile) Footer(file *os.File) {
+	// nothing here
 }
 
 func (m Makefile) Content(file *os.File) {
@@ -156,6 +189,8 @@ func (m Makefile) Content(file *os.File) {
 
 	if m.Options.ProjectType == base.LibraryProject {
 		content = libContent
+	} else if m.Options.ProjectType == base.XantePluginProject {
+		content = pluginCMakeContent
 	} else {
 		content = appContent
 	}

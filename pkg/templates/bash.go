@@ -18,22 +18,27 @@
 package templates
 
 import (
-	"fmt"
 	"os"
+	"text/template"
 
 	"source-template/pkg/base"
 )
 
+const pluginScriptContent = `
+jerminus -j {{.ProjectName}}.jtf -N
+`
+
 type BashFile struct {
+	content string
 	base.FileOptions
 	ContentData
 }
 
 func (s BashFile) Header(file *os.File) {
-	// if we're creating a project, probably will have an include directive here
 }
 
 func (s BashFile) HeaderComment(file *os.File) {
+	file.WriteString("#!/bin/bash\n")
 	tpl, err := BashSourceHeader()
 
 	if err != nil {
@@ -48,13 +53,29 @@ func (s BashFile) Footer(file *os.File) {
 }
 
 func (s BashFile) Content(file *os.File) {
-	fmt.Println("Single source content")
-	// here we try to guess what will be the file content by its name (basename)
+	tmpTpl := template.New("script")
+	tpl, err := tmpTpl.Parse(s.content)
+
+	if err != nil {
+		return
+	}
+
+	tpl.Execute(file, s.ContentData)
 }
 
 func NewBash(options base.FileOptions) base.FileTemplate {
+	var content string
+	bname := extractFilename(options.Name, options.ProjectType)
+
+	if options.ProjectType == base.XantePluginProject {
+		if bname == options.ProjectName {
+			content = pluginScriptContent
+		}
+	}
+
 	return &BashFile{
 		FileOptions: options,
+		content:     content,
 		ContentData: GetContentData(options),
 	}
 }

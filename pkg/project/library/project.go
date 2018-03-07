@@ -183,7 +183,7 @@ func New(options base.ProjectOptions) (base.Project, error) {
 
 	return &Library{
 		rootPath:       rootPath,
-		sources:        sources, //createSources(options, rootPath, prefix),
+		sources:        sources,
 		headers:        createHeaders(options, rootPath, prefix, sourceFilenames),
 		debian:         common.CreateDebianScripts(options, rootPath),
 		ProjectOptions: options,

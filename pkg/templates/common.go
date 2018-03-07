@@ -68,6 +68,7 @@ type ContentData struct {
 	ProjectIncludeFiles   string
 	LibcollectionsInclude string
 	LibcollectionsLinker  string
+	ProjectNameSnaked     string
 }
 
 func CSourceHeader() (*template.Template, error) {
@@ -92,15 +93,36 @@ func BashSourceHeader() (*template.Template, error) {
 	return tpl, nil
 }
 
+func camelCase(src string) string {
+	var camelCase string
+	isToUpper := false
+
+	for _, runeValue := range src {
+		if isToUpper {
+			camelCase += strings.ToUpper(string(runeValue))
+			isToUpper = false
+		} else {
+			if runeValue == '-' {
+				isToUpper = true
+			} else {
+				camelCase += string(runeValue)
+			}
+		}
+	}
+
+	return camelCase
+}
+
 func GetContentData(options base.FileOptions) ContentData {
 	now := time.Now()
 
 	return ContentData{
-		ProjectName:      options.ProjectName,
-		ProjectNameUpper: strings.ToUpper(options.ProjectName),
-		Author:           options.AuthorName,
-		Year:             now.Year(),
-		Date:             now.Format(time.ANSIC),
+		ProjectName:       options.ProjectName,
+		ProjectNameUpper:  strings.ToUpper(options.ProjectName),
+		Author:            options.AuthorName,
+		Year:              now.Year(),
+		Date:              now.Format(time.ANSIC),
+		ProjectNameSnaked: camelCase(options.ProjectName),
 	}
 }
 

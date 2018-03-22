@@ -29,12 +29,11 @@ import (
 	"source-template/pkg/project"
 )
 
-const AppName string = "source-tpl"
-const Version string = "0.2.0"
+const AppName string = "source-template"
+const Version string = "0.2.1"
 
 type CLIOptions struct {
 	version bool
-	quiet   bool
 	base.ProjectOptions
 }
 
@@ -126,8 +125,26 @@ func getCLIOptions() CLIOptions {
 	flag.StringVar(&projectType, "type", defaultProject,
 		"Chooses the template project type.")
 
-	flag.BoolVar(&options.quiet, "quiet", false,
-		"Disables project creation messages.")
+	flag.Usage = func() {
+		fmt.Printf("Usage: %s [OPTIONS]\n", AppName)
+		fmt.Println("An application to create project templates.\n")
+		fmt.Println("Options:")
+		flag.PrintDefaults()
+		fmt.Println()
+		fmt.Println(`Supported project types:
+  * source
+  * header
+  * application
+  * library
+  * xante-plugin
+`)
+
+		fmt.Printf(`Supported xante-plugin languages:
+  * C
+  * go
+
+`)
+	}
 
 	flag.Parse()
 
@@ -165,10 +182,6 @@ func main() {
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(-1)
-	}
-
-	if !options.quiet {
-		fmt.Println(p)
 	}
 
 	if err := p.Build(); err != nil {

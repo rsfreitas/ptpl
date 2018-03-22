@@ -115,8 +115,8 @@ func applicationMainHeaderContent(name string, projectType int) string {
 const internalLibraryHeaderContent = `
 /*
  * An internal representation of a public function. It does not affect the code
- * or the function visibility. Its objective is only to let clear what is and
- * what is not been exported from library by looking at the code.
+ * or the function visibility. Its objective is only to let it clear what is and
+ * what is not being exported from the library by looking at the code.
  *
  * Every exported function must have this at the beginning of its declaration.
  * Example:
@@ -157,12 +157,12 @@ func projectIncludeFiles(sourceFilenames []string, includePath string) string {
 }
 
 // NewHeader creates C header file template. It must receive the desired file
-// options, containing informations about it. It also receives a list of source
+// options, containing information about it. It also receives a list of source
 // file names to be used in special cases, such as building the include files
 // preprocessor of a library.
 func NewHeader(options base.FileOptions, sources []string) base.FileTemplate {
 	var content, dir, includePath string
-	bname := extractFilename(options.Name, options.ProjectType)
+	bname, _ := extractFilename(options.Name, options.ProjectType)
 
 	if bname == options.ProjectName {
 		content = applicationMainHeaderContent(bname, options.ProjectType)

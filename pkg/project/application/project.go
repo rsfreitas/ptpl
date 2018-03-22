@@ -18,7 +18,6 @@
 package application
 
 import (
-	"fmt"
 	"os"
 
 	"source-template/pkg/base"
@@ -27,80 +26,55 @@ import (
 )
 
 type Application struct {
+	// Templates
 	sources  []base.FileInfo
 	headers  []base.FileInfo
-	debian   []base.FileInfo
 	makefile base.FileInfo
-	rootPath string
+
+	paths   map[string]string
+	Package common.Package
 	base.ProjectOptions
 }
 
-func (a Application) String() string {
-	return fmt.Sprintf("Application project")
-}
-
-func createApplicationDirtree(path string, options base.ProjectOptions) error {
-	var subdirs []string
-	var prefix string
-
-	if options.PackageProject {
-		prefix = options.ProjectName
-		subdirs = append(subdirs, "pkg_install/misc")
-		subdirs = append(subdirs, "pkg_install/debian")
-	}
-
-	subdirs = append(subdirs, prefix+"/src")
-	subdirs = append(subdirs, prefix+"/include")
-
-	for _, dir := range subdirs {
-		err := os.MkdirAll(path+"/"+dir, 0755)
+func (a Application) Build() error {
+	// create root path and subdirs
+	for _, path := range a.paths {
+		err := os.MkdirAll(path, 0755)
 
 		if err != nil {
 			return err
 		}
 	}
 
-	return nil
-}
-
-func (a Application) Build() error {
-	// create root path and subdirs
-	if err := createApplicationDirtree(a.rootPath, a.ProjectOptions); err != nil {
-		return err
-	}
-
 	// create sources
 	for _, f := range a.sources {
-		if err := f.Build(); err != nil {
+		if err := f.Build(a.paths["source"]); err != nil {
 			return err
 		}
 	}
 
 	// create headers
 	for _, f := range a.headers {
-		if err := f.Build(); err != nil {
-			return err
-		}
-	}
-
-	// create debian scripts
-	for _, f := range a.debian {
-		if err := f.Build(); err != nil {
+		if err := f.Build(a.paths["header"]); err != nil {
 			return err
 		}
 	}
 
 	// create CMakeLists.txt
-	if err := a.makefile.Build(); err != nil {
+	if err := a.makefile.Build(a.paths["makefile"]); err != nil {
 		return err
+	}
+
+	// create package
+	if a.PackageProject {
+		a.Package.Build()
 	}
 
 	return nil
 }
 
-func createSources(options base.ProjectOptions, rootPath string, prefix string) []base.FileInfo {
+func createSources(options base.ProjectOptions) []base.FileInfo {
 	var files []base.FileInfo
-
 	sources := []string{
 		"main",
 	}
@@ -109,7 +83,7 @@ func createSources(options base.ProjectOptions, rootPath string, prefix string) 
 		fileOptions := base.FileOptions{
 			ProjectOptions: options,
 			HeaderComment:  true,
-			Name:           base.AddExtension(rootPath+"/"+prefix+"/src/"+s, ".c"),
+			Name:           base.AddExtension(s, ".c"),
 		}
 
 		files = append(files, base.FileInfo{
@@ -121,7 +95,7 @@ func createSources(options base.ProjectOptions, rootPath string, prefix string) 
 	return files
 }
 
-func createHeaders(options base.ProjectOptions, rootPath string, prefix string) []base.FileInfo {
+func createHeaders(options base.ProjectOptions) []base.FileInfo {
 	var files []base.FileInfo
 	var headers []string
 
@@ -135,7 +109,7 @@ func createHeaders(options base.ProjectOptions, rootPath string, prefix string) 
 		fileOptions := base.FileOptions{
 			ProjectOptions: options,
 			HeaderComment:  true,
-			Name:           base.AddExtension(rootPath+"/"+prefix+"/include/"+h, ".h"),
+			Name:           base.AddExtension(h, ".h"),
 		}
 
 		files = append(files, base.FileInfo{
@@ -148,28 +122,15 @@ func createHeaders(options base.ProjectOptions, rootPath string, prefix string) 
 }
 
 func New(options base.ProjectOptions) (base.Project, error) {
-	var rootPath string
-	var prefix string
-	cwd, err := os.Getwd()
-
-	if err != nil {
-		return &Application{}, err
-	}
-
-	if options.PackageProject {
-		prefix = options.ProjectName
-		rootPath = cwd + "/package-" + options.ProjectName
-	} else {
-		rootPath = cwd + "/" + options.ProjectName
-	}
+	paths := base.Dirtree(options)
 
 	application := &Application{
-		rootPath:       rootPath,
-		sources:        createSources(options, rootPath, prefix),
-		headers:        createHeaders(options, rootPath, prefix),
-		debian:         common.CreateDebianScripts(options, rootPath),
 		ProjectOptions: options,
-		makefile:       common.CreateMakefile(options, rootPath, prefix),
+		paths:          paths,
+		sources:        createSources(options),
+		headers:        createHeaders(options),
+		makefile:       common.CreateMakefile(options),
+		Package:        common.NewPackage(options, paths),
 	}
 
 	return application, nil

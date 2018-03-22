@@ -18,7 +18,6 @@
 package templates
 
 import (
-	"fmt"
 	"path/filepath"
 	"strings"
 	"text/template"
@@ -58,6 +57,18 @@ const headerContent = `
  */
 `
 
+const goHeaderContent = `
+//
+// Description:
+//
+// Author: {{.Author}}
+// Created at: {{.Date}}
+// Project: {{.ProjectName}}
+//
+// Copyright (C) {{.Year}} {{.Author}} All rights reserved.
+//
+`
+
 // ContentData must be used to replace variables inside template strings.
 type ContentData struct {
 	ProjectName           string
@@ -80,6 +91,31 @@ func CSourceHeader() (*template.Template, error) {
 	}
 
 	return tpl, nil
+}
+
+func GoSourceHeader() (*template.Template, error) {
+	tmpTpl := template.New("GoHeader")
+	tpl, err := tmpTpl.Parse(goHeaderContent)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return tpl, nil
+}
+
+func SourceHeader(language int) (*template.Template, error) {
+	var f func() (*template.Template, error)
+
+	switch language {
+	case base.CLanguage:
+		f = CSourceHeader
+
+	case base.GoLanguage:
+		f = GoSourceHeader
+	}
+
+	return f()
 }
 
 func BashSourceHeader() (*template.Template, error) {
@@ -127,7 +163,7 @@ func GetContentData(options base.FileOptions) ContentData {
 }
 
 // extractFilename gives only the file name without path and extension.
-func extractFilename(filename string, projectType int) string {
+func extractFilename(filename string, projectType int) (string, string) {
 	bname := filepath.Base(filename)
 	extension := filepath.Ext(bname)
 	bname = bname[0 : len(bname)-len(extension)]
@@ -136,8 +172,7 @@ func extractFilename(filename string, projectType int) string {
 		bname = bname[3:]
 	}
 
-	fmt.Println(bname)
-	return bname
+	return bname, extension
 }
 
 func errorContent(fileOptions ContentType, options base.FileOptions) string {

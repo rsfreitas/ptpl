@@ -36,21 +36,28 @@ type SourceFile struct {
 func (s SourceFile) Header(file *os.File) {
 	var cnt string
 
-	// if we're creating a project, probably will have an include directive here
-	if s.options.ProjectType == base.LibraryProject {
-		cnt = fmt.Sprintf("\n#include \"lib%[1]s.h\"\n", s.options.ProjectName)
-	} else if s.options.ProjectType == base.XantePluginProject {
-		cnt = fmt.Sprintf("\n#include \"plugin.h\"\n")
-	} else {
-		// XXX: Do we need this include in a single source file?
-		cnt = fmt.Sprintf("\n#include \"%[1]s.h\"\n", s.options.ProjectName)
+	switch s.options.Language {
+	case base.CLanguage:
+		// if we're creating a project, probably will have an include directive here
+		if s.options.ProjectType == base.LibraryProject {
+			cnt = fmt.Sprintf("\n#include \"lib%[1]s.h\"\n", s.options.ProjectName)
+		} else if s.options.ProjectType == base.XantePluginProject {
+			cnt = fmt.Sprintf("\n#include \"plugin.h\"\n")
+		} else {
+			// XXX: Do we need this include in a single source file?
+			cnt = fmt.Sprintf("\n#include \"%[1]s.h\"\n", s.options.ProjectName)
+		}
+
+	case base.GoLanguage:
+		cnt = fmt.Sprintf("\npackage main\n")
 	}
 
 	file.WriteString(cnt)
 }
 
+// TODO: Add go support
 func (s SourceFile) HeaderComment(file *os.File) {
-	tpl, err := CSourceHeader()
+	tpl, err := SourceHeader(s.options.Language)
 
 	if err != nil {
 		return
@@ -80,8 +87,8 @@ static void usage(void)
     printf("Usage: %s [OPTIONS]\n", APP_NAME);
     printf("A brief description.\n\n");
     printf("Options:\n\n");
-    printf("  -h, --help                 Shows this help screen.\n");
-    printf("  -v, --version              Shows current jerminus version.\n");
+    printf("  -h\tShows this help screen.\n");
+    printf("  -v\tShows current {{.ProjectName}} version.\n");
     printf("\n");
 }
 
@@ -117,49 +124,19 @@ int main(int argc, char **argv)
 }
 `
 
-func pluginContent() string {
-	return `
+func pluginContent(options base.FileOptions) string {
+	if options.ProjectOptions.Language == base.CLanguage {
+		return `
 /*
  *
  * Plugin information
  *
  */
-#define PLUGIN_API      "{\
-    \"API\": [\
-        { \"name\": \"xapl_init\", \"return_type\": \"int\",\
-            \"arguments\": [\
-                { \"name\": \"xpp_args\", \"type\": \"pointer\" }\
-            ]\
-        },\
-        { \"name\": \"xapl_uninit\", \"return_type\": \"void\",\
-            \"arguments\": [\
-                { \"name\": \"xpp_args\", \"type\": \"pointer\" }\
-            ]\
-        },\
-        { \"name\": \"xapl_config_load\", \"return_type\": \"void\",\
-            \"arguments\": [\
-                { \"name\": \"xpp_args\", \"type\": \"pointer\" }\
-            ]\
-        },\
-        { \"name\": \"xapl_config_unload\", \"return_type\": \"void\",\
-            \"arguments\": [\
-                { \"name\": \"xpp_args\", \"type\": \"pointer\" }\
-            ]\
-        },\
-        { \"name\": \"xapl_changes_saved\", \"return_type\": \"int\",\
-            \"arguments\": [\
-                { \"name\": \"xpp_args\", \"type\": \"pointer\" }\
-            ]\
-        }\
-    ]\
-}"
-
 CL_PLUGIN_SET_INFO(
-    {{.ProjectNameSnaked}},
+    "{{.ProjectName}}",
     "0.1.1",
     "{{.Author}}",
-    "description",
-    PLUGIN_API
+    "description"
 )
 
 /*
@@ -183,39 +160,125 @@ CL_PLUGIN_UNINIT()
  *
  */
 
-CL_PLUGIN_OBJECT_PTR_ONLY(int, xapl_init)
+CL_PLUGIN_FUNCTION(int, xapl_init)
 {
-    xante_event_arg_t *args = CL_PLUGIN_PTR_ARGUMENT();
+    xante_event_arg_t *xante_args;
+
+	cl_plugin_argument_pointer(args, "xpp_args", (void **)&xante_args);
     return 0;
 }
 
-CL_PLUGIN_OBJECT_PTR_ONLY(void, xapl_uninit)
+CL_PLUGIN_FUNCTION(void, xapl_uninit)
 {
-    xante_event_arg_t *args = CL_PLUGIN_PTR_ARGUMENT();
+    xante_event_arg_t *xante_args;
+
+	cl_plugin_argument_pointer(args, "xpp_args", (void **)&xante_args);
 }
 
-CL_PLUGIN_OBJECT_PTR_ONLY(void, xapl_config_load)
+CL_PLUGIN_FUNCTION(void, xapl_config_load)
 {
-    xante_event_arg_t *args = CL_PLUGIN_PTR_ARGUMENT();
+    xante_event_arg_t *xante_args;
+
+	cl_plugin_argument_pointer(args, "xpp_args", (void **)&xante_args);
 }
 
-CL_PLUGIN_OBJECT_PTR_ONLY(void, xapl_config_unload)
+CL_PLUGIN_FUNCTION(void, xapl_config_unload)
 {
-    xante_event_arg_t *args = CL_PLUGIN_PTR_ARGUMENT();
+    xante_event_arg_t *xante_args;
+
+	cl_plugin_argument_pointer(args, "xpp_args", (void **)&xante_args);
 }
 
-CL_PLUGIN_OBJECT_PTR_ONLY(int, xapl_changes_saved)
+CL_PLUGIN_FUNCTION(int, xapl_changes_saved)
 {
-    xante_event_arg_t *args = CL_PLUGIN_PTR_ARGUMENT();
+    xante_event_arg_t *xante_args;
 
+	cl_plugin_argument_pointer(args, "xpp_args", (void **)&xante_args);
     return 0;
 }
 `
+	} else {
+		return `
+import "C"
+import (
+	"unsafe"
+
+	"collections/pkg/collections"
+	"xante/pkg/xante"
+)
+
+//export plugin_name
+func plugin_name() *C.char {
+	return C.CString("{{.ProjectName}}")
+}
+
+//export plugin_version
+func plugin_version() *C.char {
+	return C.CString("0.1.1")
+}
+
+//export plugin_author
+func plugin_author() *C.char {
+	return C.CString("{{.Author}}")
+}
+
+//export plugin_description
+func plugin_description() *C.char {
+	return C.CString("description")
+}
+
+//
+// Startup and shutdown
+//
+
+//export plugin_init
+func plugin_init() int {
+	return 0
+}
+
+//export plugin_uninit
+func plugin_uninit() {
+}
+
+//
+// Libxante main events
+//
+
+//export xapl_init
+func xapl_init(args unsafe.Pointer) int {
+	return 0
+}
+
+//export xapl_uninit
+func xapl_uninit(args unsafe.Pointer) {
+}
+
+//export xapl_config_load
+func xapl_config_load(args unsafe.Pointer) {
+}
+
+//export xapl_config_unload
+func xapl_config_unload(args unsafe.Pointer) {
+}
+
+//export xapl_changes_saved
+func xapl_changes_saved(args unsafe.Pointer) int {
+	return 0
+}
+
+func main() {
+	//
+	// We need the main function otherwise the ELF shared object created will be
+	// in the wrong format, as an AR (archive) file and not an ELF shared object.
+	//
+}
+`
+	}
 }
 
 func NewSource(options base.FileOptions) base.FileTemplate {
 	var content string
-	bname := extractFilename(options.Name, options.ProjectType)
+	bname, _ := extractFilename(options.Name, options.ProjectType)
 	contentData := GetContentData(options)
 
 	// here we build what will be the file content based on its name (basename)
@@ -224,7 +287,7 @@ func NewSource(options base.FileOptions) base.FileTemplate {
 	} else if bname == "error" {
 		content = errorContent(Source, options)
 	} else if bname == "plugin" {
-		content = pluginContent()
+		content = pluginContent(options)
 	}
 
 	return &SourceFile{

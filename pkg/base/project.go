@@ -18,6 +18,10 @@
 //
 package base
 
+import (
+	"os"
+)
+
 type ProjectOptions struct {
 	PackageProject         bool
 	ProjectName            string
@@ -28,9 +32,6 @@ type ProjectOptions struct {
 }
 
 type Project interface {
-	// String must return in a human readable format of the project's description.
-	String() string
-
 	// Build is where all the magic must happen and the template project must
 	// be created.
 	Build() error
@@ -39,3 +40,48 @@ type Project interface {
 // Also, every supported project must have at least a function with the following
 // signature:
 type ProjectFactory func(ProjectOptions) (Project, error)
+
+// Dirtree fills a map with all needed project sub-directories.
+func Dirtree(options ProjectOptions) map[string]string {
+	var prefix string
+	var rootPath string
+	dirtree := make(map[string]string)
+
+	cwd, err := os.Getwd()
+
+	if err != nil {
+		return nil
+	}
+
+	if options.PackageProject {
+		prefix = options.ProjectName
+		rootPath = cwd + "/package-" + options.ProjectName
+		dirtree["package"] = rootPath + "/pkg_install"
+		dirtree["debian"] = rootPath + "/pkg_install/debian"
+		dirtree["misc"] = rootPath + "/pkg_install/misc"
+	} else {
+		rootPath = cwd + "/" + options.ProjectName
+	}
+
+	dirtree["source"] = rootPath + "/" + prefix + "/src"
+
+	if options.Language == CLanguage {
+		dirtree["header"] = rootPath + "/" + prefix + "/include"
+	}
+
+	if options.ProjectType == XantePluginProject {
+		dirtree["script"] = rootPath + "/" + prefix + "/script"
+		dirtree["jtf"] = rootPath + "/" + prefix + "/jtf"
+		dirtree["makefile"] = dirtree["source"]
+	} else {
+		dirtree["makefile"] = rootPath + "/" + prefix
+	}
+
+	if options.ProjectType == LibraryProject {
+		dirtree["api-header"] = rootPath + "/" + prefix + "/include/api"
+		dirtree["internal-header"] = rootPath + "/" + prefix + "/include/internal"
+		dirtree["misc"] = rootPath + "/" + prefix + "/misc"
+	}
+
+	return dirtree
+}

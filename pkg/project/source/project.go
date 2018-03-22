@@ -19,8 +19,6 @@
 package source
 
 import (
-	"fmt"
-
 	"source-template/pkg/base"
 	"source-template/pkg/templates"
 )
@@ -30,12 +28,8 @@ type SingleSource struct {
 	base.ProjectOptions
 }
 
-func (s SingleSource) String() string {
-	return fmt.Sprintf("Project type: single source\nFilename: %s\n", s.ProjectName)
-}
-
 func (s SingleSource) Build() error {
-	return s.file.Build()
+	return s.file.Build(".")
 }
 
 func New(options base.ProjectOptions) (base.Project, error) {

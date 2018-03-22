@@ -18,8 +18,6 @@
 package header
 
 import (
-	"fmt"
-
 	"source-template/pkg/base"
 	"source-template/pkg/templates"
 )
@@ -29,12 +27,8 @@ type SingleHeader struct {
 	base.ProjectOptions
 }
 
-func (s SingleHeader) String() string {
-	return fmt.Sprintf("Project type: single header\nFilename: %s\n", s.ProjectName)
-}
-
 func (s SingleHeader) Build() error {
-	return s.file.Build()
+	return s.file.Build(".")
 }
 
 func New(options base.ProjectOptions) (base.Project, error) {

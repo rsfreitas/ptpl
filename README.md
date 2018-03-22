@@ -1,6 +1,6 @@
 # source-template
 
-A script to create source projects templates.
+An utility to create source project templates.
 
 ## Template types
 
@@ -10,6 +10,4 @@ A script to create source projects templates.
 * Library
 * Package with application
 * Package with library
-
-## Dependencies
 

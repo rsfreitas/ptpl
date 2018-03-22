@@ -18,7 +18,6 @@
 package library
 
 import (
-	"fmt"
 	"os"
 
 	"source-template/pkg/base"
@@ -29,77 +28,57 @@ import (
 type Library struct {
 	sources  []base.FileInfo
 	headers  []base.FileInfo
-	debian   []base.FileInfo
 	makefile base.FileInfo
 	symbol   base.FileInfo
-	rootPath string
+
+	paths   map[string]string
+	Package common.Package
 	base.ProjectOptions
 }
 
-func (l Library) String() string {
-	return fmt.Sprintf("Library project")
-}
-
-func createLibraryDirtree(path string, options base.ProjectOptions) error {
-	var subdirs []string
-	var prefix string
-
-	if options.PackageProject {
-		prefix = options.ProjectName
-		subdirs = append(subdirs, "pkg_install/misc")
-		subdirs = append(subdirs, "pkg_install/debian")
-	}
-
-	subdirs = append(subdirs, prefix+"/src")
-	subdirs = append(subdirs, prefix+"/include/api")
-	subdirs = append(subdirs, prefix+"/include/internal")
-	subdirs = append(subdirs, prefix+"/misc")
-
-	for _, dir := range subdirs {
-		err := os.MkdirAll(path+"/"+dir, 0755)
+func (l Library) Build() error {
+	// create root path and subdirs
+	for _, path := range l.paths {
+		err := os.MkdirAll(path, 0755)
 
 		if err != nil {
 			return err
 		}
 	}
 
-	return nil
-}
-
-func (l Library) Build() error {
-	// create root path and subdirs
-	if err := createLibraryDirtree(l.rootPath, l.ProjectOptions); err != nil {
-		return err
-	}
-
 	// create sources
 	for _, f := range l.sources {
-		if err := f.Build(); err != nil {
+		if err := f.Build(l.paths["source"]); err != nil {
 			return err
 		}
 	}
 
 	// create headers
 	for _, f := range l.headers {
-		if err := f.Build(); err != nil {
+		if err := f.Build(l.paths["header"]); err != nil {
 			return err
 		}
 	}
 
 	// create CMakeLists.txt
-	if err := l.makefile.Build(); err != nil {
+	if err := l.makefile.Build(l.paths["makefile"]); err != nil {
 		return err
 	}
 
 	// create symbols file
-	if err := l.symbol.Build(); err != nil {
+	if err := l.symbol.Build(l.paths["misc"]); err != nil {
 		return err
+	}
+
+	// create package
+	if l.PackageProject {
+		l.Package.Build()
 	}
 
 	return nil
 }
 
-func createSources(options base.ProjectOptions, rootPath string, prefix string) ([]base.FileInfo, []string) {
+func createSources(options base.ProjectOptions) ([]base.FileInfo, []string) {
 	var files []base.FileInfo
 	sources := []string{
 		"utils",
@@ -110,7 +89,7 @@ func createSources(options base.ProjectOptions, rootPath string, prefix string) 
 		fileOptions := base.FileOptions{
 			ProjectOptions: options,
 			HeaderComment:  true,
-			Name:           base.AddExtension(rootPath+"/"+prefix+"/src/"+s, ".c"),
+			Name:           base.AddExtension(s, ".c"),
 		}
 
 		files = append(files, base.FileInfo{
@@ -122,7 +101,7 @@ func createSources(options base.ProjectOptions, rootPath string, prefix string) 
 	return files, sources
 }
 
-func createHeaders(options base.ProjectOptions, rootPath string, prefix string, sources []string) []base.FileInfo {
+func createHeaders(options base.ProjectOptions, sources []string) []base.FileInfo {
 	var files []base.FileInfo
 	headers := []string{
 		"lib" + options.ProjectName,
@@ -137,7 +116,7 @@ func createHeaders(options base.ProjectOptions, rootPath string, prefix string, 
 		fileOptions := base.FileOptions{
 			ProjectOptions: options,
 			HeaderComment:  true,
-			Name:           base.AddExtension(rootPath+"/"+prefix+"/include/"+h, ".h"),
+			Name:           base.AddExtension(h, ".h"),
 		}
 
 		files = append(files, base.FileInfo{
@@ -149,12 +128,12 @@ func createHeaders(options base.ProjectOptions, rootPath string, prefix string, 
 	return files
 }
 
-func createSymbol(options base.ProjectOptions, rootPath string, prefix string) base.FileInfo {
+func createSymbol(options base.ProjectOptions) base.FileInfo {
 	fileOptions := base.FileOptions{
 		Executable:     false,
 		HeaderComment:  false,
 		ProjectOptions: options,
-		Name:           rootPath + "/" + prefix + "/misc/lib" + options.ProjectName + ".sym",
+		Name:           "lib" + options.ProjectName + ".sym",
 	}
 
 	return base.FileInfo{
@@ -164,30 +143,16 @@ func createSymbol(options base.ProjectOptions, rootPath string, prefix string) b
 }
 
 func New(options base.ProjectOptions) (base.Project, error) {
-	var rootPath string
-	var prefix string
-	cwd, err := os.Getwd()
-
-	if err != nil {
-		return &Library{}, err
-	}
-
-	if options.PackageProject {
-		prefix = options.ProjectName
-		rootPath = cwd + "/package-lib" + options.ProjectName
-	} else {
-		rootPath = cwd + "/lib" + options.ProjectName
-	}
-
-	sources, sourceFilenames := createSources(options, rootPath, prefix)
+	sources, sourceFilenames := createSources(options)
+	paths := base.Dirtree(options)
 
 	return &Library{
-		rootPath:       rootPath,
 		sources:        sources,
-		headers:        createHeaders(options, rootPath, prefix, sourceFilenames),
-		debian:         common.CreateDebianScripts(options, rootPath),
+		paths:          paths,
 		ProjectOptions: options,
-		makefile:       common.CreateMakefile(options, rootPath, prefix),
-		symbol:         createSymbol(options, rootPath, prefix),
+		headers:        createHeaders(options, sourceFilenames),
+		makefile:       common.CreateMakefile(options),
+		symbol:         createSymbol(options),
+		Package:        common.NewPackage(options, paths),
 	}, nil
 }

@@ -42,8 +42,9 @@ type FileInfo struct {
 	FileTemplate
 }
 
-func (f FileInfo) Build() error {
-	file, err := os.Create(f.Name)
+func (f FileInfo) Build(path string) error {
+	filename := path + "/" + f.Name
+	file, err := os.Create(filename)
 
 	if err != nil {
 		return err
@@ -60,7 +61,7 @@ func (f FileInfo) Build() error {
 	f.Footer(file)
 
 	if f.Executable {
-		cmd := exec.Command("chmod", "+x", f.Name)
+		cmd := exec.Command("chmod", "+x", filename)
 
 		if err := cmd.Run(); err != nil {
 			return err
